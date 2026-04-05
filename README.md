@@ -1,33 +1,26 @@
-# absynth-ui
+# ABSYNTH UI
 
-This template should help get you started developing with Vue 3 in Vite.
+A high-performance, reactive user interface for the **ABSYNTH** subtractive(as of now) synthesizer VST3/AU plugin. Built with **Vue 3**, **TypeScript**, and **Tailwind CSS**, this UI communicates with a native **C++ (JUCE 8)** audio engine via a low-latency WebView bridge.
 
-## Recommended IDE Setup
+## 🎹 Tech Stack
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+- **Framework:** Vue 3 (Composition API)
+- **State Management:** Pinia (Syncs with JUCE AudioProcessorParameters)
+- **Styling:** Tailwind CSS (Custom "dark-mode" synth aesthetics)
+- **Build Tool:** Vite
+- **Language:** TypeScript
 
-## Recommended Browser Setup
+## 🚀 Development
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+### Prerequisites
+This UI is designed to run in a browser for rapid prototyping or inside a JUCE-hosted WebView for plugin development.
 
-## Type Support for `.vue` Imports in TS
-
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
-
-```sh
+```bash
+# Install dependencies
 npm install
-```
+
+# Start the development server with Hot Module Replacement (HMR)
+npm run dev
 
 ### Compile and Hot-Reload for Development
 
