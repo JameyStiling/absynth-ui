@@ -1,15 +1,12 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import * as Juce from 'juce-framework-frontend';
 
 const currentOctave = ref(4);
 const sendMidiNote = Juce.getNativeFunction("sendMidiNote");
 
-// Layout for notes A through G# as requested
+// Layout starting from C
 const notes = [
-  { name: 'A', offset: 9, isBlack: false },
-  { name: 'A#', offset: 10, isBlack: true },
-  { name: 'B', offset: 11, isBlack: false },
   { name: 'C', offset: 0, isBlack: false },
   { name: 'C#', offset: 1, isBlack: true },
   { name: 'D', offset: 2, isBlack: false },
@@ -19,6 +16,9 @@ const notes = [
   { name: 'F#', offset: 6, isBlack: true },
   { name: 'G', offset: 7, isBlack: false },
   { name: 'G#', offset: 8, isBlack: true },
+  { name: 'A', offset: 9, isBlack: false },
+  { name: 'A#', offset: 10, isBlack: true },
+  { name: 'B', offset: 11, isBlack: false },
 ];
 
 const getMidiNote = (offset: number) => {
@@ -27,6 +27,7 @@ const getMidiNote = (offset: number) => {
 };
 
 const activeNotes = ref<Set<number>>(new Set());
+const isDragging = ref(false);
 
 const playNote = (offset: number) => {
   const note = getMidiNote(offset);
@@ -51,10 +52,49 @@ const stopNote = (offset: number) => {
     console.log(`MIDI Note OFF: ${note}`);
   }
 };
+
+const onMouseDown = (offset: number) => {
+  isDragging.value = true;
+  playNote(offset);
+};
+
+const onMouseEnter = (offset: number) => {
+  if (isDragging.value) {
+    playNote(offset);
+  }
+};
+
+const onMouseLeave = (offset: number) => {
+  stopNote(offset);
+};
+
+// Global mouse up to catch when user releases mouse outside the keyboard
+const onGlobalMouseUp = () => {
+  isDragging.value = false;
+  // Safety: clear any stuck notes
+  activeNotes.value.forEach(note => {
+    try {
+      sendMidiNote(note, 0, false);
+    } catch (e) {
+      console.log(`MIDI Note OFF: ${note}`);
+    }
+  });
+  activeNotes.value.clear();
+};
+
+onMounted(() => {
+  window.addEventListener('mouseup', onGlobalMouseUp);
+  window.addEventListener('touchend', onGlobalMouseUp);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('mouseup', onGlobalMouseUp);
+  window.removeEventListener('touchend', onGlobalMouseUp);
+});
 </script>
 
 <template>
-  <div class="mt-8 p-6 border border-slate-700/50 rounded-2xl bg-slate-800/80 backdrop-blur-md shadow-2xl relative w-full max-w-4xl mx-auto flex flex-col items-center select-none">
+  <div class="mt-8 p-6 border border-slate-700/50 rounded-2xl bg-slate-800/80 backdrop-blur-md shadow-2xl relative w-full max-w-4xl mx-auto flex flex-col items-center select-none" @dragstart.prevent>
     <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-indigo-500 opacity-75"></div>
     
     <div class="flex justify-between items-center w-full mb-6">
@@ -70,13 +110,13 @@ const stopNote = (offset: number) => {
     </div>
 
     <!-- Keyboard Keys -->
-    <div class="flex justify-center w-full px-4 relative h-40">
+    <div class="flex justify-center w-full px-4 relative h-40" @mouseleave="isDragging = false">
       <div v-for="note in notes" :key="note.name"
-           @mousedown="playNote(note.offset)"
-           @mouseup="stopNote(note.offset)"
-           @mouseleave="stopNote(note.offset)"
-           @touchstart.prevent="playNote(note.offset)"
-           @touchend.prevent="stopNote(note.offset)"
+           @mousedown.prevent="onMouseDown(note.offset)"
+           @mouseenter.prevent="onMouseEnter(note.offset)"
+           @mouseleave.prevent="onMouseLeave(note.offset)"
+           @touchstart.prevent="onMouseDown(note.offset)"
+           @touchmove.prevent
            :class="[
              'flex items-end justify-center pb-3 cursor-pointer rounded-b-md transition-all duration-75',
              note.isBlack 
