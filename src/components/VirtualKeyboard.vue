@@ -94,7 +94,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="mt-8 p-6 border border-slate-700/50 rounded-2xl bg-slate-800/80 backdrop-blur-md shadow-2xl relative w-full max-w-4xl mx-auto flex flex-col items-center select-none" @dragstart.prevent>
+  <div class="h-full p-6 border border-slate-700/50 rounded-2xl bg-slate-800/80 backdrop-blur-md shadow-2xl relative w-full flex flex-col items-center select-none" @dragstart.prevent>
     <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-indigo-500 opacity-75"></div>
     
     <div class="flex justify-between items-center w-full mb-6">
