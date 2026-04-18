@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@vueuse/core": "^14.2.1",
+    "juce-framework-frontend": "file:../absynth-vst/JUCE/modules/juce_gui_extra/native/javascript",
     "pinia": "^3.0.4",
     "vue": "^3.5.31",
     "vue-router": "^5.0.4"

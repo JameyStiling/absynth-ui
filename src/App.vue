@@ -1,30 +1,70 @@
 <script setup lang="ts">
-// This is where synth logic and imports will live
+import JuceKnob from './components/JuceKnob.vue';
+import JuceSelect from './components/JuceSelect.vue';
 </script>
 
 <template>
-  <main class="min-h-screen bg-slate-900 text-white p-8">
-    <h1 class="text-4xl font-bold tracking-tighter">ABSYNTH</h1>
-    <p class="text-slate-400">Subtractive Synthesis Engine</p>
+  <main class="min-h-screen bg-slate-900 text-white p-8 flex flex-col items-center select-none">
+    <div class="text-center mb-10">
+      <h1 class="text-5xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500 drop-shadow-sm">ABSYNTH</h1>
+      <p class="text-slate-400 font-medium tracking-wide mt-2 uppercase text-sm">Subtractive Synthesis Engine</p>
+    </div>
     
-    <div class="mt-12 p-8 border-2 border-slate-800 rounded-2xl bg-slate-950 shadow-2xl inline-block">
-      <div class="flex gap-8">
-        <div class="w-32 h-32 rounded-full border-4 border-cyan-500/20 flex items-center justify-center">
-           <span class="text-xs uppercase tracking-widest text-cyan-400">Osc</span>
-        </div>
+    <div class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-3 gap-6">
+      
+      <!-- Oscillator Section -->
+      <div class="p-6 border border-slate-700/50 rounded-2xl bg-slate-800/80 backdrop-blur-md shadow-2xl relative overflow-hidden group">
+        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-pink-500 to-rose-500 opacity-75"></div>
+        <h2 class="text-lg font-bold text-slate-200 mb-6 flex items-center">
+          <span class="w-2 h-2 rounded-full bg-pink-500 mr-2 shadow-[0_0_8px_rgba(236,72,153,0.8)]"></span>
+          OSCILLATOR
+        </h2>
         
-        <div class="w-32 h-32 rounded-full border-4 border-magenta-500/20 flex items-center justify-center">
-           <span class="text-xs uppercase tracking-widest text-pink-400">Filter</span>
+        <div class="flex flex-col gap-8">
+          <JuceSelect id="oscType" label="Waveform" />
+          <!-- We can add tune or fine here later -->
         </div>
       </div>
+      
+      <!-- Filter Section -->
+      <div class="p-6 border border-slate-700/50 rounded-2xl bg-slate-800/80 backdrop-blur-md shadow-2xl relative overflow-hidden group">
+        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-400 to-blue-500 opacity-75"></div>
+        <h2 class="text-lg font-bold text-slate-200 mb-6 flex items-center">
+          <span class="w-2 h-2 rounded-full bg-cyan-400 mr-2 shadow-[0_0_8px_rgba(34,211,238,0.8)]"></span>
+          FILTER
+        </h2>
+        
+        <div class="flex justify-around items-center h-full pb-8">
+          <JuceKnob id="cutoff" label="Cutoff" />
+          <JuceKnob id="resonance" label="Reson" />
+        </div>
+      </div>
+      
+      <!-- Envelope Section -->
+      <div class="p-6 border border-slate-700/50 rounded-2xl bg-slate-800/80 backdrop-blur-md shadow-2xl relative overflow-hidden group">
+        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-400 to-teal-500 opacity-75"></div>
+        <h2 class="text-lg font-bold text-slate-200 mb-6 flex items-center">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 mr-2 shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span>
+          ENVELOPE
+        </h2>
+        
+        <div class="grid grid-cols-2 gap-y-8 gap-x-4">
+          <JuceKnob id="attack" label="Attack" />
+          <JuceKnob id="decay" label="Decay" />
+          <JuceKnob id="sustain" label="Sustain" />
+          <JuceKnob id="release" label="Release" />
+        </div>
+      </div>
+
     </div>
   </main>
 </template>
 
 <style>
-/* Base resets */
 body {
   margin: 0;
-  overflow: hidden; /* VSTs usually don't scroll */
+  overflow: hidden;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #0f172a;
 }
 </style>

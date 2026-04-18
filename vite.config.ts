@@ -6,6 +6,13 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Listen on all interfaces so both http://localhost:5173 (browser) and http://127.0.0.1:5173
+  // (JUCE WebView in many DAWs) reach the dev server.
+  server: {
+    host: true,
+    port: 5173,
+    strictPort: true,
+  },
   plugins: [
     vue(),
     vueDevTools(),
