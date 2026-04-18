@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import JuceKnob from './components/JuceKnob.vue';
 import JuceSelect from './components/JuceSelect.vue';
+import VirtualKeyboard from './components/VirtualKeyboard.vue';
 </script>
 
 <template>
-  <main class="min-h-screen bg-slate-900 text-white p-8 flex flex-col items-center select-none">
+  <main class="min-h-screen bg-slate-900 text-white p-8 flex flex-col items-center select-none overflow-y-auto">
     <div class="text-center mb-10">
       <h1 class="text-5xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500 drop-shadow-sm">ABSYNTH</h1>
       <p class="text-slate-400 font-medium tracking-wide mt-2 uppercase text-sm">Subtractive Synthesis Engine</p>
@@ -22,7 +23,6 @@ import JuceSelect from './components/JuceSelect.vue';
         
         <div class="flex flex-col gap-8">
           <JuceSelect id="oscType" label="Waveform" />
-          <!-- We can add tune or fine here later -->
         </div>
       </div>
       
@@ -57,14 +57,9 @@ import JuceSelect from './components/JuceSelect.vue';
       </div>
 
     </div>
+
+    <!-- Virtual Keyboard -->
+    <VirtualKeyboard />
+
   </main>
 </template>
-
-<style>
-body {
-  margin: 0;
-  overflow: hidden;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: #0f172a;
-}
-</style>
