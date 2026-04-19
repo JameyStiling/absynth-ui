@@ -23,7 +23,8 @@ import VirtualKeyboard from './components/VirtualKeyboard.vue';
         </h2>
         
         <div class="flex flex-col gap-8">
-          <JuceSelect id="oscType" label="Waveform" />
+          <JuceSelect id="oscType" label="Waveform"
+            tooltip="Sine = warm/round. Saw = bright, rich harmonics (best for wub). Square = hollow, woody." />
         </div>
       </div>
       
@@ -36,8 +37,10 @@ import VirtualKeyboard from './components/VirtualKeyboard.vue';
         </h2>
         
         <div class="flex justify-around items-center h-full pb-8">
-          <JuceKnob id="cutoff" label="Cutoff" />
-          <JuceKnob id="resonance" label="Reson" />
+          <JuceKnob id="cutoff" label="Cutoff"
+            tooltip="Low-pass filter cutoff frequency. Lower = darker sound. Higher = brighter, more open." />
+          <JuceKnob id="resonance" label="Reson"
+            tooltip="Boosts frequencies at the cutoff point. High values create a characteristic 'squelch'." />
         </div>
       </div>
       
@@ -50,13 +53,38 @@ import VirtualKeyboard from './components/VirtualKeyboard.vue';
         </h2>
         
         <div class="grid grid-cols-2 gap-y-8 gap-x-4">
-          <JuceKnob id="attack" label="Attack" />
-          <JuceKnob id="decay" label="Decay" />
-          <JuceKnob id="sustain" label="Sustain" />
-          <JuceKnob id="release" label="Release" />
+          <JuceKnob id="attack"  label="Attack"  tooltip="Time to ramp from silence to full volume after a key is pressed." />
+          <JuceKnob id="decay"   label="Decay"   tooltip="Time to fall from peak volume down to the sustain level." />
+          <JuceKnob id="sustain" label="Sustain" tooltip="Volume held while a key is held down (after decay)." />
+          <JuceKnob id="release" label="Release" tooltip="Time to fade to silence after a key is released." />
         </div>
       </div>
 
+    </div>
+
+    <!-- WUB Section -->
+    <div class="w-full max-w-4xl mt-6 p-6 border border-slate-700/50 rounded-2xl bg-slate-800/80 backdrop-blur-md shadow-2xl relative overflow-hidden">
+      <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-400 to-orange-500 opacity-75"></div>
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-lg font-bold text-slate-200 flex items-center">
+          <span class="w-2 h-2 rounded-full bg-yellow-400 mr-2 shadow-[0_0_8px_rgba(250,204,21,0.8)]"></span>
+          WUB GENERATOR
+        </h2>
+        <JuceToggle id="wubEnabled" label="Enable"
+          tooltip="Enables the LFO wub filter effect on the master output." />
+      </div>
+      <div class="grid grid-cols-5 gap-6 items-center">
+        <JuceKnob id="wubRate"      label="Rate"
+          tooltip="Speed of the LFO sweep in Hz. ~2 Hz = classic dubstep wub tempo." />
+        <JuceKnob id="wubDepth"     label="Depth"
+          tooltip="How wide the filter sweeps around the center frequency. 0 = no movement, 1 = maximum sweep." />
+        <JuceKnob id="wubCenter"    label="Center"
+          tooltip="Base frequency the LFO orbits. 300–800 Hz = classic wub zone." />
+        <JuceKnob id="wubResonance" label="Resonance"
+          tooltip="Resonance of the wub filter. Higher = more squelchy, characteristic wub tone." />
+        <JuceSelect id="wubFilterType" label="Filter Type"
+          tooltip="LPF = classic warm wub. BPF = tighter, more vocal mid-range wub." />
+      </div>
     </div>
 
     <!-- Keyboard Row: Legato/Glide panel + Keyboard -->
@@ -65,8 +93,10 @@ import VirtualKeyboard from './components/VirtualKeyboard.vue';
       <!-- Legato & Glide side panel -->
       <div class="flex flex-col items-center justify-around gap-6 p-5 border border-slate-700/50 rounded-2xl bg-slate-800/80 backdrop-blur-md shadow-2xl relative shrink-0 w-32">
         <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-indigo-500 opacity-75 rounded-t-2xl"></div>
-        <JuceToggle id="legato" label="Legato" />
-        <JuceKnob id="glideTime" label="Glide" />
+        <JuceToggle id="legato" label="Legato"
+          tooltip="Monophonic legato mode. New notes glide without re-triggering the envelope." />
+        <JuceKnob id="glideTime" label="Glide"
+          tooltip="Portamento time — how long the pitch takes to slide between notes when Legato is on." />
       </div>
 
       <!-- Virtual Keyboard (fills remaining width) -->

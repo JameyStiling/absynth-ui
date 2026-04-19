@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue';
 import * as Juce from 'juce-framework-frontend';
+import Tooltip from './Tooltip.vue';
 
 const props = defineProps<{
   id: string;
   label: string;
+  tooltip?: string;
 }>();
 
 const value = ref(false);
@@ -33,21 +35,23 @@ const toggle = () => {
 </script>
 
 <template>
-  <div class="flex flex-col items-center gap-3 w-full">
-    <div 
-      @click="toggle"
-      :class="[
-        'w-12 h-6 rounded-full p-1 cursor-pointer transition-colors duration-300 ease-in-out relative flex items-center',
-        value ? 'bg-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.5)]' : 'bg-slate-700'
-      ]"
-    >
+  <Tooltip :text="tooltip ?? ''">
+    <div class="flex flex-col items-center gap-3 w-full">
       <div 
+        @click="toggle"
         :class="[
-          'w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ease-in-out',
-          value ? 'translate-x-6' : 'translate-x-0'
+          'w-12 h-6 rounded-full p-1 cursor-pointer transition-colors duration-300 ease-in-out relative flex items-center',
+          value ? 'bg-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.5)]' : 'bg-slate-700'
         ]"
-      ></div>
+      >
+        <div 
+          :class="[
+            'w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ease-in-out',
+            value ? 'translate-x-6' : 'translate-x-0'
+          ]"
+        ></div>
+      </div>
+      <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">{{ label }}</span>
     </div>
-    <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">{{ label }}</span>
-  </div>
+  </Tooltip>
 </template>

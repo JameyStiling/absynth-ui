@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "start": "vite & sleep 2 && open ../absynth-vst/build/AbsynthSynth_artefacts/Standalone/Absynth.app",
     "dev": "vite",
     "build": "run-p type-check \"build-only {@}\" --",
     "preview": "vite preview",
