@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 
 const props = defineProps<{
   oscillators: Array<{ active: boolean; type: number; level: number }>;
@@ -13,7 +13,16 @@ const draw = () => {
   const cvs = canvas.value;
   if (!cvs) return;
   const ctx = cvs.getContext('2d')!;
+  
+  // Dynamic sizing
+  const rect = cvs.getBoundingClientRect();
+  if (cvs.width !== Math.floor(rect.width) || cvs.height !== Math.floor(rect.height)) {
+    cvs.width = Math.floor(rect.width);
+    cvs.height = Math.floor(rect.height);
+  }
+  
   const W = cvs.width, H = cvs.height;
+  if (W === 0 || H === 0) return;
 
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = '#030308';
@@ -26,8 +35,8 @@ const draw = () => {
     const y = (H / 4) * i;
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
   }
-  for (let i = 1; i < 8; i++) {
-    const x = (W / 8) * i;
+  for (let i = 1; i < 12; i++) {
+    const x = (W / 12) * i;
     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
   }
 
@@ -82,6 +91,6 @@ onUnmounted(() => { cancelAnimationFrame(animId); });
 
 <template>
   <div class="w-full overflow-hidden rounded-xl border border-[rgba(0,140,255,0.2)] bg-[#030308]" style="height:90px;">
-    <canvas ref="canvas" class="w-full h-full" width="1140" height="90" />
+    <canvas ref="canvas" class="w-full h-full" />
   </div>
 </template>

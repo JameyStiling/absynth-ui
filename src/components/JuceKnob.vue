@@ -17,7 +17,22 @@ const isDragging = ref(false);
 const startY = ref(0);
 const startVal = ref(0);
 
-const scaledValue = computed(() => sliderState.getScaledValue().toFixed(2));
+const scaledValue = computed(() => {
+  const val = sliderState.getScaledValue();
+  
+  // Check if this is a frequency parameter (cutoff or wubCenter)
+  if (props.id.toLowerCase().includes('cutoff') || props.id.toLowerCase().includes('center')) {
+    const freq = val;
+    const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    // MIDI note = 69 + 12 * log2(freq / 440)
+    const midiNote = Math.round(69 + 12 * Math.log2(freq / 440));
+    const octave = Math.floor(midiNote / 12) - 1;
+    const noteName = noteNames[midiNote % 12];
+    return `${freq.toFixed(0)} Hz (${noteName}${octave})`;
+  }
+  
+  return val.toFixed(2);
+});
 
 const updateValue = () => {
   value.value = sliderState.getNormalisedValue();
