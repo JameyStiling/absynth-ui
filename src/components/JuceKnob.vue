@@ -81,7 +81,7 @@ const rotation = computed(() => {
         >
           <!-- Knob rotation wrapper -->
           <div class="w-full h-full relative" :style="{ transform: `rotate(${rotation}deg)` }">
-            <div class="absolute top-1 left-1/2 -translate-x-1/2 w-1.5 h-4 bg-cyan-400 rounded-full shadow-[0_0_8px_rgba(34,211,238,0.8)]"></div>
+            <div class="absolute top-1 left-1/2 -translate-x-1/2 w-1.5 h-4 bg-violet-400 rounded-full shadow-[0_0_8px_rgba(167,139,250,0.9)]"></div>
           </div>
         </div>
 
@@ -99,14 +99,14 @@ const rotation = computed(() => {
 
 <style scoped>
 .knob-glow-idle {
-  box-shadow: 0 0 0 0 rgba(34, 211, 238, 0);
+  box-shadow: 0 0 0 0 rgba(167, 139, 250, 0);
 }
 
 .knob-glow-idle:hover {
-  box-shadow: 0 0 12px 3px rgba(34, 211, 238, 0.25);
+  box-shadow: 0 0 12px 3px rgba(167, 139, 250, 0.25);
 }
 
 .knob-glow-active {
-  box-shadow: 0 0 20px 6px rgba(34, 211, 238, 0.45);
+  box-shadow: 0 0 20px 6px rgba(167, 139, 250, 0.5);
 }
 </style>
