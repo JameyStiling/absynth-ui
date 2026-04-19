@@ -1,66 +1,115 @@
 # ABSYNTH UI
 
-A high-performance, reactive user interface for the **ABSYNTH** subtractive(as of now) synthesizer VST3/AU plugin. Built with **Vue 3**, **TypeScript**, and **Tailwind CSS**, this UI communicates with a native **C++ (JUCE 8)** audio engine via a low-latency WebView bridge.
+> The Vue 3 frontend for the **Absynth** subtractive synthesizer, running inside a JUCE 8 `WKWebView` with a live JS↔C++ parameter bridge.
 
-## 🎹 Tech Stack
+---
 
-- **Framework:** Vue 3 (Composition API)
-- **State Management:** Pinia (Syncs with JUCE AudioProcessorParameters)
-- **Styling:** Tailwind CSS (Custom "dark-mode" synth aesthetics)
-- **Build Tool:** Vite
-- **Language:** TypeScript
+## Overview
 
-## 🚀 Development
+This repo contains the entire user interface for Absynth. It is a **Vue 3 + TypeScript** single-page app served by Vite and loaded inside the JUCE standalone app or plugin's embedded WebView. Changes made in the browser dev tools or via HMR appear instantly inside the running synthesizer — no C++ rebuild required.
+
+For C++ DSP source and build instructions, see the companion repo: [absynth-vst](https://github.com/JameyStiling/absynth-vst).  
+For a full description of every synth parameter, see [absynth-vst/PARAMETERS.md](https://github.com/JameyStiling/absynth-vst/blob/main/PARAMETERS.md).
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | Vue 3 (Composition API + `<script setup>`) |
+| Language | TypeScript |
+| Styling | Tailwind CSS (dark synth aesthetic) |
+| Build | Vite 6 with HMR |
+| JUCE Bridge | `juce-framework-frontend` npm package |
+
+---
+
+## Project Structure
+
+```
+src/
+├── App.vue                  # Root layout — all synth sections assembled here
+├── main.ts                  # App entry point
+└── components/
+    ├── JuceKnob.vue         # Rotary knob ↔ juce::WebSliderRelay
+    ├── JuceSelect.vue       # Dropdown ↔ juce::WebComboBoxRelay
+    ├── JuceToggle.vue       # Toggle switch ↔ juce::WebToggleButtonRelay
+    └── VirtualKeyboard.vue  # Drag-to-play keyboard → sendMidiNote native bridge
+```
+
+### UI Sections (App.vue)
+
+| Section | Parameters |
+|---------|-----------|
+| **Oscillator** | Waveform (Sine/Saw/Square) |
+| **Filter** | Cutoff, Resonance |
+| **Envelope** | Attack, Decay, Sustain, Release |
+| **Wub Generator** | Enable, Rate, Depth, Center, Resonance, Filter Type |
+| **Legato Panel** (left of keyboard) | Legato toggle, Glide time |
+| **Virtual Keyboard** | C–B chromatic, octave select, drag-to-play |
+
+---
+
+## Development
 
 ### Prerequisites
-This UI is designed to run in a browser for rapid prototyping or inside a JUCE-hosted WebView for plugin development.
+
+- Node.js ≥ 18
+- The **absynth-vst** standalone app built and running (provides the C++ bridge)
+
+### Install & Start
 
 ```bash
-# Install dependencies
 npm install
-
-# Start the development server with Hot Module Replacement (HMR)
-npm run dev
-
-### Compile and Hot-Reload for Development
-
-```sh
-npm run dev
+npm run dev      # Vite dev server → http://localhost:5173
 ```
 
-### Type-Check, Compile and Minify for Production
+> **Important:** The server must run on `localhost` (not `127.0.0.1`). JUCE's WKWebView treats `localhost` as a secure origin; `127.0.0.1` is blocked for native function calls.
 
-```sh
-npm run build
+### Other Commands
+
+```bash
+npm run build        # Production bundle (not needed for plugin dev)
+npm run type-check   # TypeScript type checking
+npm run lint         # ESLint
+npm run test:unit    # Vitest unit tests
 ```
 
-### Run Unit Tests with [Vitest](https://vitest.dev/)
+---
 
-```sh
-npm run test:unit
+## How the JUCE Bridge Works
+
+### Parameter Knobs / Sliders (JuceKnob, JuceSelect, JuceToggle)
+
+Each component calls `Juce.getSliderState(id)` / `Juce.getComboBoxState(id)` / `Juce.getToggleState(id)` from the `juce-framework-frontend` package. JUCE registers matching `WebSliderRelay` / `WebComboBoxRelay` / `WebToggleButtonRelay` objects on the C++ side. When you move a knob in the UI, the value is immediately synchronized to the `AudioProcessorValueTreeState` parameter on the C++ audio thread.
+
+### MIDI (VirtualKeyboard)
+
+The virtual keyboard calls a **native function** registered by the C++ `PluginEditor`:
+
+```ts
+const sendMidiNote = Juce.getNativeFunction("sendMidiNote");
+sendMidiNote(midiNoteNumber, velocity, isNoteOn);
 ```
 
-### Run End-to-End Tests with [Playwright](https://playwright.dev)
+On the C++ side this calls `processorRef.handleWebMidiEvent(note, vel, isNoteOn)`, which injects a note-on/off directly into the `MidiKeyboardState`, feeding the synth voices in the next `processBlock`.
 
-```sh
-# Install browsers for the first run
-npx playwright install
+---
 
-# When testing on CI, must build the project first
-npm run build
+## Notes for Development
 
-# Runs the end-to-end tests
-npm run test:e2e
-# Runs the tests only on Chromium
-npm run test:e2e -- --project=chromium
-# Runs the tests of a specific file
-npm run test:e2e -- tests/example.spec.ts
-# Runs the tests in debug mode
-npm run test:e2e -- --debug
-```
+- `vueDevTools()` is **disabled** in `vite.config.ts`. It crashes Apple's WKWebView — do not re-enable it when running inside the plugin.
+- The JUCE bridge is only active when running inside the standalone/plugin app. When opened in a regular browser, knob components gracefully fall back to local state and keyboard clicks log to the console instead of producing audio.
+- All parameter IDs in Vue components (e.g. `id="cutoff"`) must exactly match the `ParameterID` strings registered in `PluginProcessor::createParameters()`.
 
-### Lint with [ESLint](https://eslint.org/)
+---
 
-```sh
-npm run lint
-```
+## License
+
+MIT — see `LICENSE` for details.
+
+## Acknowledgments
+
+UI powered by [Vue 3](https://vuejs.org/) + [Vite](https://vitejs.dev/)  
+Audio engine by [JUCE](https://juce.com/)
