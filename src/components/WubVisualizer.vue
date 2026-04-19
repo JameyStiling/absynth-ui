@@ -66,9 +66,13 @@ const draw = () => {
 
   // Helper for note conversion
   const getNote = (freq: number) => {
+    const safeFreq = Math.max(20, freq);
     const names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-    const midi = Math.round(69 + 12 * Math.log2(freq / 440));
-    return `${names[midi % 12]}${Math.floor(midi / 12) - 1}`;
+    const midi = Math.round(69 + 12 * Math.log2(safeFreq / 440));
+    if (isNaN(midi) || !isFinite(midi)) return "??";
+    const name = names[((midi % 12) + 12) % 12];
+    const oct = Math.floor(midi / 12) - 1;
+    return `${name}${oct}`;
   };
 
   // Draw range shadow

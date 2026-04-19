@@ -38,64 +38,143 @@ const filters = reactive([
 ]);
 
 // ─── Routing ──────────────────────────────────────────────────────────────────
-// routing[oscIdx] = Set of filterIdx
 const routing = reactive<Map<number, Set<number>>>(
   new Map([[0, new Set([0])]])
 );
-const selectedOsc = ref<number | null>(null);
 
 const isConnected = (o: number, f: number) => routing.get(o)?.has(f) ?? false;
 
-const clickOscPort = (i: number) => {
-  selectedOsc.value = selectedOsc.value === i ? null : i;
+// Dragging state
+const dragMode = ref<'connect' | 'disconnect' | null>(null);
+const dragSourceOsc = ref<number | null>(null);
+const dragSourceFilter = ref<number | null>(null);
+const mousePos = reactive({ x: 0, y: 0 });
+const routingContainer = ref<HTMLElement | null>(null);
+
+// Force re-render of SVG paths when layout changes
+const layoutVersion = ref(0);
+watch([oscillators, filters], () => {
+  nextTick(() => { layoutVersion.value++; });
+}, { deep: true });
+
+const getPortPos = (type: 'osc' | 'filter', index: number) => {
+  if (!routingContainer.value) return { x: 0, y: 0 };
+  
+  const selector = type === 'osc' ? `[data-osc-port="${index}"]` : `[data-filter-port="${index}"]`;
+  const portEl = document.querySelector(selector);
+  if (!portEl) return { x: 0, y: 0 };
+
+  const portRect = portEl.getBoundingClientRect();
+  const containerRect = routingContainer.value.getBoundingClientRect();
+  
+  return {
+    x: (portRect.left + portRect.width / 2) - containerRect.left,
+    y: (portRect.top + portRect.height / 2) - containerRect.top
+  };
 };
 
-const clickFilterPort = (f: number) => {
-  const o = selectedOsc.value;
-  if (o === null) return;
-  if (!routing.has(o)) routing.set(o, new Set());
-  const set = routing.get(o)!;
-  set.has(f) ? set.delete(f) : set.add(f);
-  selectedOsc.value = null;
+const startDragFromOsc = (e: MouseEvent, i: number) => {
+  dragMode.value = 'connect';
+  dragSourceOsc.value = i;
+  updateMousePos(e);
+  window.addEventListener('mousemove', onDragMove);
+  window.addEventListener('mouseup', onDragEnd);
 };
 
-// Compute SVG routing lines
-const SVG_W = 120;
-const ROW_H = 104;
-const COLLAPSED_H = 32;
-
-const rowY = (i: number, isFilter: boolean = false) => {
-  let y = 0;
-  const list = isFilter ? filters : oscillators;
-  for (let j = 0; j < i; j++) {
-    y += list[j].collapsed ? COLLAPSED_H : ROW_H;
+const startDragFromFilter = (e: MouseEvent, f: number) => {
+  let connectedOsc = -1;
+  for (let o = 0; o < oscillators.length; o++) {
+    if (isConnected(o, f)) {
+      connectedOsc = o;
+      break;
+    }
   }
-  const currentH = list[i].collapsed ? COLLAPSED_H : ROW_H;
-  return y + currentH / 2;
+
+  if (connectedOsc !== -1) {
+    dragMode.value = 'disconnect';
+    dragSourceOsc.value = connectedOsc;
+    dragSourceFilter.value = f;
+    updateMousePos(e);
+    window.addEventListener('mousemove', onDragMove);
+    window.addEventListener('mouseup', onDragEnd);
+  }
 };
+
+const updateMousePos = (e: MouseEvent) => {
+  if (!routingContainer.value) return;
+  const rect = routingContainer.value.getBoundingClientRect();
+  mousePos.x = e.clientX - rect.left;
+  mousePos.y = e.clientY - rect.top;
+};
+
+const onDragMove = (e: MouseEvent) => {
+  updateMousePos(e);
+};
+
+const onDragEnd = (e: MouseEvent) => {
+  window.removeEventListener('mousemove', onDragMove);
+  window.removeEventListener('mouseup', onDragEnd);
+
+  const target = e.target as HTMLElement;
+  const filterPort = target.closest('[data-filter-port]');
+  
+  if (filterPort) {
+    const f = parseInt(filterPort.getAttribute('data-filter-port')!);
+    const o = dragSourceOsc.value!;
+    
+    if (dragMode.value === 'connect') {
+      if (!routing.has(o)) routing.set(o, new Set());
+      routing.get(o)!.add(f);
+    }
+  } else if (dragMode.value === 'disconnect') {
+    const o = dragSourceOsc.value!;
+    const f = dragSourceFilter.value!;
+    routing.get(o)?.delete(f);
+  }
+
+  dragMode.value = null;
+  dragSourceOsc.value = null;
+  dragSourceFilter.value = null;
+  layoutVersion.value++;
+};
+
+const SVG_W = 140;
 
 // ─── JUCE bridge ──────────────────────────────────────────────────────────────
-let juceOscCombo: any = null;
 let isUpdating = false;
 
 onMounted(() => {
   if ((window as any).__JUCE__) {
-    juceOscCombo = Juce.getComboBoxState('oscType');
-    
-    // Initial sync
-    const initial = juceOscCombo.getChoiceIndex();
-    oscillators[0].type = initial;
+    // Setup 3 Oscillators
+    for (let i = 0; i < 3; i++) {
+      const idx = i + 1;
+      const osc = oscillators[i];
+      
+      const juceActive = Juce.getToggleState(`osc${idx}Active`);
+      const juceType   = Juce.getComboBoxState(`osc${idx}Type`);
+      const juceLevel  = Juce.getSliderState(`osc${idx}Level`);
 
-    // Listen for JUCE changes (automation, preset, etc.)
-    juceOscCombo.valueChangedEvent.addListener(() => {
-      const incoming = juceOscCombo.getChoiceIndex();
-      if (incoming !== oscillators[0].type) {
-        isUpdating = true;
-        oscillators[0].type = incoming;
-        // Wait for Vue to finish its reactive cycle before allowing watch to talk back
-        nextTick(() => { isUpdating = false; });
-      }
-    });
+      // Initial Sync
+      osc.active = juceActive.getValue();
+      osc.type   = juceType.getChoiceIndex();
+      osc.level  = juceLevel.getScaledValue() * 100;
+
+      // Listeners
+      juceActive.valueChangedEvent.addListener(() => { if(!isUpdating) osc.active = juceActive.getValue(); });
+      juceType.valueChangedEvent.addListener(() => { if(!isUpdating) osc.type = juceType.getChoiceIndex(); });
+      juceLevel.valueChangedEvent.addListener(() => { if(!isUpdating) osc.level = juceLevel.getScaledValue() * 100; });
+
+      // UI Watches (push to JUCE)
+      watch(() => osc.active, (v) => { 
+        isUpdating = true; juceActive.setValue(v); nextTick(() => isUpdating = false); 
+      });
+      watch(() => osc.type, (v) => { 
+        isUpdating = true; juceType.setChoiceIndex(v); nextTick(() => isUpdating = false); 
+      });
+      watch(() => osc.level, (v) => { 
+        isUpdating = true; juceLevel.setNormalisedValue(v / 100); nextTick(() => isUpdating = false); 
+      });
+    }
 
     // Hook up wub params for visualizer
     const wubCenter = Juce.getSliderState('wubCenter');
@@ -106,23 +185,15 @@ onMounted(() => {
     wub.center = wubCenter.getScaledValue();
     wub.depth = wubDepth.getScaledValue();
     wub.rate = wubRate.getScaledValue();
-    
-    // Force JUCE state to match our default 'true' on mount
-    wubActive.setValue(wub.active); 
+    wub.active = wubActive.getValue();
 
     wubCenter.valueChangedEvent.addListener(() => wub.center = wubCenter.getScaledValue());
     wubDepth.valueChangedEvent.addListener(() => wub.depth = wubDepth.getScaledValue());
     wubRate.valueChangedEvent.addListener(() => wub.rate = wubRate.getScaledValue());
     wubActive.valueChangedEvent.addListener(() => wub.active = wubActive.getValue());
-  }
-});
 
-watch(() => oscillators[0].type, (t) => {
-  if (juceOscCombo && !isUpdating) {
-    // Only send to JUCE if JUCE doesn't already have this value
-    if (juceOscCombo.getChoiceIndex() !== t) {
-      juceOscCombo.setChoiceIndex(t);
-    }
+    // Wub UI Watches
+    watch(() => wub.active, (v) => wubActive.setValue(v));
   }
 });
 
@@ -178,89 +249,107 @@ const toggle = (key: keyof typeof collapsed) => { collapsed[key] = !collapsed[ke
           <!-- OSCILLATORS column -->
           <div class="flex flex-col gap-0 flex-1">
             <div class="col-header">OSCILLATORS</div>
-            <div
-              v-for="(osc, i) in oscillators"
+            <div 
+              v-for="(osc, i) in oscillators" 
               :key="osc.id"
-              class="osc-row-container"
+              class="osc-row-container" 
               :class="{ 'osc-collapsed': osc.collapsed, 'row-inactive': !osc.active }"
             >
+              <!-- OSC Row Header -->
               <div class="osc-row-header" @click="osc.collapsed = !osc.collapsed">
                 <button
                   class="led-btn mr-3"
                   :style="osc.active ? 'background:#0099FF; box-shadow: 0 0 8px #0099FF;' : 'background:#112233;'"
                   @click.stop="osc.active = !osc.active"
                 ></button>
-                <span class="row-label">OSC {{ osc.id }}</span>
-                <span class="text-[9px] ml-2 opacity-40 uppercase tracking-tighter" v-if="osc.collapsed">
-                  {{ OSC_NAMES[osc.type] }} @ {{ osc.level }}%
-                </span>
+                <span class="row-label">{{ OSC_NAMES[osc.type] }} {{ osc.id }}</span>
                 <span class="chevron ml-auto" :class="{ rotated: osc.collapsed }">&#8964;</span>
                 
-                <!-- Port stays in header so routing works when collapsed -->
+                <!-- Output Port -->
                 <button
                   class="port ml-3"
-                  :class="{ 'port-selected': selectedOsc === i, 'port-connected': [...(routing.get(i) ?? [])].length > 0 }"
-                  @click.stop="clickOscPort(i)"
+                  :class="{ 
+                    'port-connected': Array.from(routing.get(i) || []).length > 0 
+                  }"
+                  :data-osc-port="i"
+                  @mousedown.stop="startDragFromOsc($event, i)"
                 ></button>
               </div>
-
+              
+              <!-- OSC Row Content -->
               <div class="osc-row-content" v-if="!osc.collapsed">
-                <div class="flex items-center w-full px-2 py-3 gap-4">
+                <div class="flex items-center w-full px-4 py-3 gap-6">
                   <!-- Waveform selector -->
-                  <div class="flex gap-1">
-                    <button
-                      v-for="(icon, wi) in WAVE_ICONS"
-                      :key="wi"
+                  <div class="flex gap-2">
+                    <button v-for="(name, ti) in OSC_NAMES" :key="ti"
                       class="wave-btn"
-                      :class="{ 'wave-btn-active': osc.type === wi }"
-                      @click.stop="osc.type = wi"
-                    >{{ icon }}</button>
+                      :class="{ 'wave-btn-active': osc.type === ti }"
+                      @click.stop="osc.type = ti"
+                    >{{ WAVE_ICONS[ti] }}</button>
                   </div>
-
-                  <!-- Level slider -->
-                  <div class="flex items-center gap-1 ml-auto">
-                    <span class="text-[10px] tracking-widest" style="color:#335577;">LVL</span>
-                    <input type="range" min="0" max="100" :value="osc.level"
-                      @input="osc.level = +($event.target as HTMLInputElement).value"
-                      class="level-slider" />
-                    <span class="text-[10px] w-7 text-right font-mono" style="color:#4488AA;">{{ osc.level }}</span>
+                  
+                  <!-- Level -->
+                  <div class="flex flex-col gap-1 flex-1">
+                    <span class="text-[8px] uppercase tracking-widest text-white/20 font-bold">Volume</span>
+                    <input type="range" class="level-slider" v-model.number="osc.level" min="0" max="100" />
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- SVG Routing lines -->
-          <div class="routing-svg-container">
-            <div class="col-header text-center" style="color: rgba(0,120,200,0.4); font-size:10px;">ROUTING</div>
-            <svg :width="SVG_W" :height="Math.max(oscillators.reduce((sum, o) => sum + (o.collapsed ? COLLAPSED_H : ROW_H), 0), filters.reduce((sum, f) => sum + (f.collapsed ? COLLAPSED_H : ROW_H), 0))" class="overflow-visible">
+          <!-- SVG Routing Center -->
+          <div class="routing-svg-container" :style="{ width: SVG_W + 'px' }" ref="routingContainer">
+            <svg :width="SVG_W" :height="600" class="pointer-events-none" :key="layoutVersion">
               <defs>
-                <marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-                  <path d="M0,0 L6,3 L0,6 Z" fill="#0099FF" opacity="0.7"/>
+                <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                  <path d="M0,0 L0,6 L8,3 z" fill="#0088FF" />
                 </marker>
               </defs>
-              <template v-for="(osc, oi) in oscillators" :key="oi">
-                <template v-for="(flt, fi) in filters" :key="fi">
+              
+              <!-- Existing Connections -->
+              <template v-for="(set, oi) in Array.from(routing.entries())" :key="oi">
+                <template v-for="fi in Array.from(set[1])" :key="fi">
                   <path
-                    v-if="isConnected(oi, fi)"
-                    :d="`M 0,${rowY(oi)} C ${SVG_W*0.4},${rowY(oi)} ${SVG_W*0.6},${rowY(fi, true)} ${SVG_W},${rowY(fi, true)}`"
+                    v-if="getPortPos('osc', set[0]).x !== 0"
+                    :d="`M ${Math.max(0, getPortPos('osc', set[0]).x)},${getPortPos('osc', set[0]).y} 
+                        C ${Math.max(0, getPortPos('osc', set[0]).x) + 30},${getPortPos('osc', set[0]).y} 
+                          ${Math.min(SVG_W, getPortPos('filter', fi).x) - 30},${getPortPos('filter', fi).y} 
+                          ${Math.min(SVG_W, getPortPos('filter', fi).x)},${getPortPos('filter', fi).y}`"
                     fill="none"
                     stroke="#0088FF"
-                    stroke-width="1.5"
-                    stroke-opacity="0.6"
+                    stroke-width="2"
+                    stroke-opacity="0.8"
                     marker-end="url(#arrow)"
                   />
                 </template>
               </template>
-              <!-- Hint when an osc is selected -->
-              <template v-if="selectedOsc !== null">
-                <line
-                  v-for="(flt, fi) in filters" :key="fi"
-                  :x1="0" :y1="rowY(selectedOsc)"
-                  :x2="SVG_W" :y2="rowY(fi, true)"
-                  stroke="#0099FF" stroke-width="1" stroke-opacity="0.15" stroke-dasharray="4 4"
-                />
-              </template>
+
+              <!-- Drag Preview -->
+              <path
+                v-if="dragMode === 'connect'"
+                :d="`M ${Math.max(0, getPortPos('osc', dragSourceOsc!).x)},${getPortPos('osc', dragSourceOsc!).y} 
+                    C ${Math.max(0, getPortPos('osc', dragSourceOsc!).x) + 30},${getPortPos('osc', dragSourceOsc!).y} 
+                      ${Math.min(SVG_W, mousePos.x) - 30},${mousePos.y} 
+                      ${Math.min(SVG_W, mousePos.x)},${mousePos.y}`"
+                fill="none"
+                stroke="#0099FF"
+                stroke-width="2"
+                stroke-dasharray="4 4"
+                marker-end="url(#arrow)"
+              />
+              <path
+                v-if="dragMode === 'disconnect'"
+                :d="`M ${Math.max(0, mousePos.x)},${mousePos.y} 
+                    C ${Math.max(0, mousePos.x) + 30},${mousePos.y} 
+                      ${Math.min(SVG_W, getPortPos('filter', dragSourceFilter!).x) - 30},${getPortPos('filter', dragSourceFilter!).y} 
+                      ${Math.min(SVG_W, getPortPos('filter', dragSourceFilter!).x)},${getPortPos('filter', dragSourceFilter!).y}`"
+                fill="none"
+                stroke="#FF4444"
+                stroke-width="2"
+                stroke-dasharray="4 4"
+                marker-end="url(#arrow)"
+              />
             </svg>
           </div>
 
@@ -290,33 +379,36 @@ const toggle = (key: keyof typeof collapsed) => { collapsed[key] = !collapsed[ke
                 <button
                   class="port mr-3"
                   :class="{ 
-                    'port-target': selectedOsc !== null, 
-                    'port-connected': oscillators.some((_, oi) => isConnected(oi, i)) 
+                    'port-connected': Array.from(routing.entries()).some(([_, set]) => set.has(i)),
+                    'port-target': dragMode === 'connect'
                   }"
-                  @click.stop="clickFilterPort(i)"
+                  :data-filter-port="i"
+                  @mousedown.stop="startDragFromFilter($event, i)"
                 ></button>
               </div>
 
               <!-- Filter Row Content -->
               <div class="osc-row-content" v-if="!flt.collapsed">
-                <div class="flex items-center w-full px-4 py-3 gap-4">
-                  <!-- Filter type selector -->
-                  <div class="flex gap-1">
+                <div class="flex items-center justify-between w-full px-6 py-3 gap-8">
+                  <!-- Type selector -->
+                  <div class="flex gap-2">
                     <button v-for="(name, ti) in FILTER_NAMES" :key="ti"
-                      class="wave-btn text-[10px]"
-                      :class="{ 'wave-btn-active': flt.type === ti }"
+                      class="filter-type-btn"
+                      :class="{ 'filter-type-active': flt.type === ti }"
                       @click.stop="flt.type = ti"
                     >{{ name }}</button>
                   </div>
-
-                  <!-- Cutoff + Resonance -->
-                  <div class="flex items-center gap-4 ml-auto" v-if="i === 0">
-                    <JuceKnob id="cutoff"    label="Cut" tooltip="Filter cutoff frequency." />
-                    <JuceKnob id="resonance" label="Res" tooltip="Filter resonance / squelch." />
-                  </div>
-                  <div class="flex items-center gap-4 ml-auto" v-else>
-                    <div class="fake-knob"><span>Cut</span></div>
-                    <div class="fake-knob"><span>Res</span></div>
+                  
+                  <!-- Knobs -->
+                  <div class="flex gap-10 pr-4">
+                    <template v-if="i === 0">
+                      <JuceKnob id="cutoff" label="Cut" />
+                      <JuceKnob id="resonance" label="Res" />
+                    </template>
+                    <template v-else>
+                      <div class="fake-knob"><span>Cut</span></div>
+                      <div class="fake-knob"><span>Res</span></div>
+                    </template>
                   </div>
                 </div>
               </div>
@@ -448,7 +540,6 @@ const toggle = (key: keyof typeof collapsed) => { collapsed[key] = !collapsed[ke
   background: rgba(5, 8, 22, 0.94);
   border: 1px solid rgba(0, 100, 255, 0.16);
   position: relative;
-  overflow: hidden;
   transition: all 0.3s ease;
 }
 .panel:hover { border-color: rgba(0, 130, 255, 0.25); }
@@ -490,32 +581,31 @@ const toggle = (key: keyof typeof collapsed) => { collapsed[key] = !collapsed[ke
 
 /* ── Oscillator row ───────────────────────────────────────────────────────── */
 .osc-row-container {
-  background: rgba(0, 100, 255, 0.03);
-  border: 1px solid rgba(0, 140, 255, 0.1);
-  border-radius: 8px;
-  margin-bottom: 4px;
+  background: rgba(10, 20, 40, 0.4);
+  border: 1px solid rgba(0, 100, 255, 0.1);
+  border-radius: 12px;
+  margin-bottom: 8px;
   overflow: hidden;
-  transition: all 0.2s ease;
-  height: 104px; /* Fixed height for expanded state */
-}
-.osc-collapsed {
-  height: 32px; /* Fixed height for collapsed state */
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 120px;
 }
 
-.osc-row-container:hover {
-  border-color: rgba(0, 140, 255, 0.2);
-  background: rgba(0, 100, 255, 0.05);
+.osc-collapsed {
+  min-height: 40px !important;
 }
+
 .osc-row-header {
-  height: 32px;
+  height: 40px;
   display: flex;
   align-items: center;
-  padding: 0 12px;
+  padding: 0 16px;
   cursor: pointer;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(0, 100, 255, 0.05);
 }
+
 .osc-row-content {
-  border-top: 1px solid rgba(0, 140, 255, 0.05);
-  height: 72px;
+  padding: 16px 0 20px 0;
   display: flex;
   align-items: center;
 }
@@ -528,7 +618,26 @@ const toggle = (key: keyof typeof collapsed) => { collapsed[key] = !collapsed[ke
   border-bottom: 1px solid rgba(0, 100, 255, 0.05);
 }
 
-.row-inactive { opacity: 0.35; filter: grayscale(0.5); }
+.row-inactive {
+  opacity: 0.8;
+  filter: grayscale(0.9) brightness(0.7);
+}
+
+.row-inactive .row-label {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.row-inactive .wave-btn, 
+.row-inactive .filter-type-btn {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.row-inactive:hover {
+  opacity: 0.95;
+  filter: grayscale(0.5) brightness(0.9);
+}
 .row-label { 
   font-size: 11px; 
   font-weight: 800; 
@@ -548,59 +657,76 @@ const toggle = (key: keyof typeof collapsed) => { collapsed[key] = !collapsed[ke
 }
 
 /* ── Waveform / filter type buttons ────────────────────────────────────────── */
-.wave-btn {
-  padding: 3px 9px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  border: 1px solid rgba(0, 100, 255, 0.2);
-  background: rgba(0, 20, 60, 0.6);
-  color: rgba(100, 160, 255, 0.5);
+.wave-btn, .filter-type-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  color: #446688;
+  font-size: 10px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
   cursor: pointer;
-  transition: all 0.15s;
 }
-.wave-btn:hover { border-color: rgba(0, 140, 255, 0.5); color: #88CCFF; }
-.wave-btn-active {
-  background: rgba(0, 100, 255, 0.2);
-  border-color: rgba(0, 150, 255, 0.6);
-  color: #55AAFF;
-  box-shadow: 0 0 8px rgba(0, 120, 255, 0.3);
+
+.wave-btn:hover, .filter-type-btn:hover {
+  background: rgba(255,255,255,0.06);
+  color: #88AACC;
+}
+
+.wave-btn-active, .filter-type-active {
+  background: rgba(0,120,255,0.15) !important;
+  border-color: rgba(0,180,255,0.4) !important;
+  color: #00AAFF !important;
+  box-shadow: 0 0 15px rgba(0,130,255,0.2);
+}
+
+.filter-type-btn {
+  width: auto;
+  padding: 0 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
 
 /* ── Port (routing node) ───────────────────────────────────────────────────── */
 .port {
-  width: 14px; height: 14px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  border: 2px solid rgba(0, 120, 255, 0.4);
-  background: rgba(0, 30, 80, 0.8);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: all 0.15s;
+  background: #0f172a;
+  border: 2px solid #1e293b;
+  cursor: crosshair;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  z-index: 50;
 }
-.port:hover { border-color: #0099FF; background: rgba(0, 60, 150, 0.8); }
-.port-selected {
-  border-color: #33AAFF;
-  background: #0077CC;
-  box-shadow: 0 0 10px #0099FF;
+
+.port:hover {
+  background: #1e293b;
+  border-color: #3b82f6;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+  transform: scale(1.1);
 }
+
 .port-connected {
-  border-color: rgba(0, 180, 255, 0.7);
-  background: rgba(0, 80, 180, 0.5);
+  background: #1e3a8a;
+  border-color: #3b82f6;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.6), inset 0 0 4px rgba(0,0,0,0.5);
 }
+
 .port-target {
-  border-color: rgba(0, 200, 255, 0.6);
-  animation: pulse-port 0.8s ease-in-out infinite alternate;
-}
-@keyframes pulse-port {
   from { box-shadow: 0 0 4px rgba(0, 180, 255, 0.3); }
   to   { box-shadow: 0 0 12px rgba(0, 180, 255, 0.7); }
 }
 
 /* ── SVG routing container ─────────────────────────────────────────────────── */
 .routing-svg-container {
-  display: flex;
-  flex-direction: column;
-  padding-top: 0;
+  position: relative;
+  overflow: hidden;
 }
 
 /* ── Wave cycle button (single click-to-cycle per OSC row) ─────────────────── */

@@ -28,6 +28,8 @@ const getMidiNote = (offset: number) => {
 
 const activeNotes = ref<Set<number>>(new Set());
 const isDragging = ref(false);
+const isLatchEnabled = ref(false);
+const lastOffset = ref<number | null>(null);
 
 const playNote = (offset: number) => {
   const note = getMidiNote(offset);
@@ -54,24 +56,47 @@ const stopNote = (offset: number) => {
 };
 
 const onMouseDown = (offset: number) => {
+  if (isLatchEnabled.value) {
+    const note = getMidiNote(offset);
+    if (activeNotes.value.has(note)) {
+      stopNote(offset);
+    } else {
+      playNote(offset);
+    }
+    return;
+  }
+  
   isDragging.value = true;
+  lastOffset.value = offset;
   playNote(offset);
 };
 
 const onMouseEnter = (offset: number) => {
-  if (isDragging.value) {
+  if (isLatchEnabled.value) return; // Don't slide in Latch mode
+  
+  if (isDragging.value && lastOffset.value !== offset) {
     playNote(offset);
+    if (lastOffset.value !== null) {
+      stopNote(lastOffset.value);
+    }
+    lastOffset.value = offset;
   }
 };
 
-const onMouseLeave = (offset: number) => {
-  stopNote(offset);
+const onMouseLeaveKey = (offset: number) => {
+  if (isLatchEnabled.value) return; // Don't auto-stop in Latch mode
+  
+  if (!isDragging.value) {
+    stopNote(offset);
+  }
 };
 
-// Global mouse up to catch when user releases mouse outside the keyboard
 const onGlobalMouseUp = () => {
+  if (isLatchEnabled.value) return; // Global mouse up doesn't stop notes in Latch mode
+  
+  if (!isDragging.value) return;
   isDragging.value = false;
-  // Safety: clear any stuck notes
+  
   activeNotes.value.forEach(note => {
     try {
       sendMidiNote(note, 0, false);
@@ -80,6 +105,15 @@ const onGlobalMouseUp = () => {
     }
   });
   activeNotes.value.clear();
+  lastOffset.value = null;
+};
+
+const toggleLatch = () => {
+  isLatchEnabled.value = !isLatchEnabled.value;
+  // If turning latch OFF, release all currently held notes for safety
+  if (!isLatchEnabled.value) {
+    onGlobalMouseUp();
+  }
 };
 
 onMounted(() => {
@@ -95,8 +129,17 @@ onUnmounted(() => {
 
 <template>
   <div class="h-full relative w-full flex flex-col items-center select-none" @dragstart.prevent>
-    <div class="flex justify-end items-center w-full mb-6">
-      <div class="flex items-center gap-4 bg-white/5 p-1.5 rounded-lg border border-white/10">
+    <div class="flex justify-end items-center w-full mb-6 gap-4">
+      <!-- Latch Toggle -->
+      <button 
+        @click="toggleLatch" 
+        class="h-10 px-4 flex items-center justify-center rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all border shadow-lg"
+        :class="isLatchEnabled ? 'bg-violet-600 border-violet-400 text-white shadow-violet-500/30' : 'bg-white/5 border-white/10 text-white/30'"
+      >
+        Latch {{ isLatchEnabled ? 'ON' : 'OFF' }}
+      </button>
+
+      <div class="flex items-center gap-4 bg-white/5 p-1.5 rounded-lg border border-white/10 shadow-lg">
         <button @click="currentOctave = Math.max(0, currentOctave - 1)" class="w-8 h-7 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded text-slate-200 font-bold transition-colors shadow active:scale-95">-</button>
         <span class="text-white/40 font-bold text-[10px] w-20 text-center uppercase tracking-[0.2em]">Octave {{ currentOctave }}</span>
         <button @click="currentOctave = Math.min(8, currentOctave + 1)" class="w-8 h-7 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded text-slate-200 font-bold transition-colors shadow active:scale-95">+</button>
@@ -104,11 +147,11 @@ onUnmounted(() => {
     </div>
 
     <!-- Keyboard Keys -->
-    <div class="flex justify-center w-full px-4 relative h-40" @mouseleave="isDragging = false">
+    <div class="flex justify-center w-full px-4 relative h-40">
       <div v-for="note in notes" :key="note.name"
            @mousedown.prevent="onMouseDown(note.offset)"
            @mouseenter.prevent="onMouseEnter(note.offset)"
-           @mouseleave.prevent="onMouseLeave(note.offset)"
+           @mouseleave.prevent="onMouseLeaveKey(note.offset)"
            @touchstart.prevent="onMouseDown(note.offset)"
            @touchmove.prevent
            :class="[
