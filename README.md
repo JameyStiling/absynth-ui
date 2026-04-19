@@ -1,15 +1,15 @@
-# ABSYNTH UI
+# LATTICE UI
 
-> The Vue 3 frontend for the **Absynth** subtractive synthesizer, running inside a JUCE 8 `WKWebView` with a live JS↔C++ parameter bridge.
+> The Vue 3 frontend for the **Lattice** semi-modular synthesizer, running inside a JUCE 8 `WKWebView` with a live JS↔C++ parameter bridge.
 
 ---
 
 ## Overview
 
-This repo contains the entire user interface for Absynth. It is a **Vue 3 + TypeScript** single-page app served by Vite and loaded inside the JUCE standalone app or plugin's embedded WebView. Changes made in the browser dev tools or via HMR appear instantly inside the running synthesizer — no C++ rebuild required.
+This repo contains the entire user interface for Lattice. It is a **Vue 3 + TypeScript** single-page app served by Vite and loaded inside the JUCE standalone app or plugin's embedded WebView. Changes made in the browser dev tools or via HMR appear instantly inside the running synthesizer — no C++ rebuild required.
 
-For C++ DSP source and build instructions, see the companion repo: [absynth-vst](https://github.com/JameyStiling/absynth-vst).  
-For a full description of every synth parameter, see [absynth-vst/PARAMETERS.md](https://github.com/JameyStiling/absynth-vst/blob/main/PARAMETERS.md).
+For C++ DSP source and build instructions, see the companion repo: [lattice-vst](https://github.com/JameyStiling/lattice-vst).  
+For a full description of every synth parameter, see [lattice-vst/PARAMETERS.md](https://github.com/JameyStiling/lattice-vst/blob/main/PARAMETERS.md).
 
 ---
 
@@ -28,26 +28,29 @@ For a full description of every synth parameter, see [absynth-vst/PARAMETERS.md]
 ## Project Structure
 
 ```
-src/
-├── App.vue                  # Root layout — all synth sections assembled here
-├── main.ts                  # App entry point
-└── components/
-    ├── JuceKnob.vue         # Rotary knob ↔ juce::WebSliderRelay
-    ├── JuceSelect.vue       # Dropdown ↔ juce::WebComboBoxRelay
-    ├── JuceToggle.vue       # Toggle switch ↔ juce::WebToggleButtonRelay
-    └── VirtualKeyboard.vue  # Drag-to-play keyboard → sendMidiNote native bridge
+├── src/
+│   ├── App.vue                  # Root layout — all synth sections assembled here
+│   ├── main.ts                  # App entry point
+│   └── components/
+│       ├── JuceKnob.vue         # Rotary knob ↔ juce::WebSliderRelay (with Hz/Note display)
+│       ├── JuceToggle.vue       # Toggle switch ↔ juce::WebToggleButtonRelay (Neon Blue theme)
+│       ├── WaveformInspector.vue# Live composite waveform visualization
+│       ├── WubVisualizer.vue    # LFO frequency spectrum visualization
+│       └── VirtualKeyboard.vue  # Drag-to-play keyboard → sendMidiNote native bridge
 ```
 
-### UI Sections (App.vue)
+### UI Features (Lattice)
 
-| Section | Parameters |
-|---------|-----------|
-| **Oscillator** | Waveform (Sine/Saw/Square) |
-| **Filter** | Cutoff, Resonance |
-| **Envelope** | Attack, Decay, Sustain, Release |
-| **Wub Generator** | Enable, Rate, Depth, Center, Resonance, Filter Type |
-| **Legato Panel** (left of keyboard) | Legato toggle, Glide time |
-| **Virtual Keyboard** | C–B chromatic, octave select, drag-to-play |
+| Component | Features |
+|-----------|----------|
+| **Waveform Inspector** | Real-time composite waveform display (Sine, Saw, Square summing) |
+| **Signal Routing** | Interactive semi-modular matrix with collapsible OSC and Filter rows |
+| **Oscillators** | 3 independent slots with waveform selection and level control |
+| **Filters** | 3 independent slots (LPF, HPF, BPF) with Cutoff/Resonance |
+| **Envelope & WUB** | Unified collapsible panel for ADSR and LFO-based Wub effects |
+| **Wub Visualizer** | Live spectrum plot showing LFO sweep range and current frequency |
+| **Smart Knobs** | Frequency-aware overlays showing Hz and nearest musical note |
+| **Virtual Keyboard** | Chromatic drag-to-play with Legato and Glide controls |
 
 ---
 
@@ -56,7 +59,7 @@ src/
 ### Prerequisites
 
 - Node.js ≥ 18
-- The **absynth-vst** standalone app built and running (provides the C++ bridge)
+- The **lattice-vst** standalone app built and running (provides the C++ bridge)
 
 ### Install & Start
 

@@ -41,7 +41,7 @@ const toggle = () => {
         @click="toggle"
         :class="[
           'w-12 h-6 rounded-full p-1 cursor-pointer transition-colors duration-300 ease-in-out relative flex items-center',
-          value ? 'bg-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.5)]' : 'bg-slate-700'
+          value ? 'bg-[#0077CC] shadow-[0_0_10px_rgba(0,140,255,0.45)]' : 'bg-[#0d1f35]'
         ]"
       >
         <div 
@@ -51,7 +51,7 @@ const toggle = () => {
           ]"
         ></div>
       </div>
-      <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">{{ label }}</span>
+      <span class="text-xs font-bold uppercase tracking-widest" style="color: rgba(80,160,255,0.6);">{{ label }}</span>
     </div>
   </Tooltip>
 </template>
