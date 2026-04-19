@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "kill $(lsof -ti:5173) 2>/dev/null; vite & sleep 2 && open ../absynth-vst/build/AbsynthSynth_artefacts/Standalone/Absynth.app",
+    "start": "kill $(lsof -ti:5173) 2>/dev/null; vite & sleep 2 && open ../absynth-vst/build/Lattice_artefacts/Standalone/Lattice.app",
     "dev": "vite",
     "build": "run-p type-check \"build-only {@}\" --",
     "preview": "vite preview",

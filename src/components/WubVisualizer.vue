@@ -72,39 +72,61 @@ const draw = () => {
   };
 
   // Draw range shadow
-  ctx.fillStyle = 'rgba(0, 140, 255, 0.05)';
+  ctx.fillStyle = 'rgba(0, 140, 255, 0.08)';
   ctx.fillRect(xMin, 0, xMax - xMin, H);
 
-  // Draw peak curve (bell-like for the wub)
+  // Draw peak curve (bell-like for the wub) with glow
   ctx.beginPath();
-  ctx.strokeStyle = 'rgba(0, 140, 255, 0.5)';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#0099FF';
+  ctx.lineWidth = 2.5;
+  ctx.shadowBlur = 12;
+  ctx.shadowColor = '#0088FF';
+  
   for (let x = 0; x < W; x++) {
     const dist = Math.abs(x - xCurrent);
-    const y = H - (Math.exp(-dist / 30) * (H - 10) + 5);
+    // Sharper bell curve
+    const intensity = Math.exp(-Math.pow(dist / 40, 2));
+    const y = H - (intensity * (H - 12) + 6);
     if (x === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   }
   ctx.stroke();
-
-  // Draw moving dot
-  ctx.fillStyle = '#33AAFF';
-  ctx.beginPath();
-  ctx.arc(xCurrent, H - 5, 4, 0, Math.PI * 2);
-  ctx.fill();
   
-  // Draw label
-  ctx.fillStyle = 'rgba(100, 200, 255, 0.9)';
-  ctx.font = '700 9px JetBrains Mono, monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText(`${Math.round(currentFreq)}Hz`, xCurrent, H - 28);
-  ctx.fillStyle = 'rgba(0, 140, 255, 0.5)';
-  ctx.fillText(getNote(currentFreq), xCurrent, H - 18);
+  // Draw fill under the curve
+  ctx.lineTo(W, H);
+  ctx.lineTo(0, H);
+  ctx.fillStyle = 'rgba(0, 140, 255, 0.1)';
+  ctx.fill();
 
-  ctx.shadowBlur = 10;
-  ctx.shadowColor = '#0088FF';
+  ctx.shadowBlur = 0; // Reset shadow for labels
+
+  // Draw moving indicator line
+  ctx.strokeStyle = 'rgba(0, 200, 255, 0.4)';
+  ctx.setLineDash([2, 4]);
+  ctx.beginPath();
+  ctx.moveTo(xCurrent, 0);
+  ctx.lineTo(xCurrent, H);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Draw moving dot with intense glow
+  ctx.fillStyle = '#FFFFFF';
+  ctx.shadowBlur = 15;
+  ctx.shadowColor = '#00CCFF';
+  ctx.beginPath();
+  ctx.arc(xCurrent, H - 6, 3, 0, Math.PI * 2);
   ctx.fill();
   ctx.shadowBlur = 0;
+  
+  // Draw labels with better contrast
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = '900 10px JetBrains Mono, Inter, monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${Math.round(currentFreq)} Hz`, xCurrent, 15);
+  
+  ctx.fillStyle = '#0099FF';
+  ctx.font = '800 11px Inter, sans-serif';
+  ctx.fillText(getNote(currentFreq), xCurrent, 28);
 
   animId = requestAnimationFrame(draw);
 };

@@ -11,11 +11,13 @@ import VirtualKeyboard from './components/VirtualKeyboard.vue';
 const showWaveform = ref(true);
 
 // ─── Wub Visualizer state ─────────────────────────────────────────────────────
-const wubParams = reactive({
-  center: 500,
-  depth: 0.5,
-  rate: 1.0,
-  active: false
+const wub = reactive({
+  active: true, // Enabled by default for better screenshots/demo
+  rate: 45,
+  depth: 60,
+  center: 440,
+  reson: 0.5,
+  filterType: 0 // 0: LPF, 1: BPF
 });
 
 // ─── Oscillator state ─────────────────────────────────────────────────────────
@@ -101,15 +103,17 @@ onMounted(() => {
     const wubRate = Juce.getSliderState('wubRate');
     const wubActive = Juce.getToggleState('wubEnabled');
 
-    wubParams.center = wubCenter.getScaledValue();
-    wubParams.depth = wubDepth.getScaledValue();
-    wubParams.rate = wubRate.getScaledValue();
-    wubParams.active = wubActive.getValue();
+    wub.center = wubCenter.getScaledValue();
+    wub.depth = wubDepth.getScaledValue();
+    wub.rate = wubRate.getScaledValue();
+    
+    // Force JUCE state to match our default 'true' on mount
+    wubActive.setValue(wub.active); 
 
-    wubCenter.valueChangedEvent.addListener(() => wubParams.center = wubCenter.getScaledValue());
-    wubDepth.valueChangedEvent.addListener(() => wubParams.depth = wubDepth.getScaledValue());
-    wubRate.valueChangedEvent.addListener(() => wubParams.rate = wubRate.getScaledValue());
-    wubActive.valueChangedEvent.addListener(() => wubParams.active = wubActive.getValue());
+    wubCenter.valueChangedEvent.addListener(() => wub.center = wubCenter.getScaledValue());
+    wubDepth.valueChangedEvent.addListener(() => wub.depth = wubDepth.getScaledValue());
+    wubRate.valueChangedEvent.addListener(() => wub.rate = wubRate.getScaledValue());
+    wubActive.valueChangedEvent.addListener(() => wub.active = wubActive.getValue());
   }
 });
 
@@ -135,19 +139,17 @@ const toggle = (key: keyof typeof collapsed) => { collapsed[key] = !collapsed[ke
 <template>
   <main class="lattice-bg min-h-screen text-white flex flex-col select-none overflow-y-auto" style="padding: 20px 28px;">
 
-    <!-- ── Header ──────────────────────────────────────────────────────── -->
-    <header class="flex items-center justify-between mb-4">
+    <!-- ── Header ── -->
+    <header class="flex justify-between items-center mb-8 px-2">
       <div>
-        <h1 class="lattice-title text-5xl font-black tracking-tighter">LATTICE</h1>
-        <p class="text-[11px] tracking-[0.35em] uppercase mt-1" style="color: rgba(80,160,255,0.5);">by Sherd Audio</p>
+        <h1 class="text-4xl font-black tracking-tighter lattice-title m-0">LATTICE</h1>
+        <p class="text-[10px] uppercase tracking-[0.4em] text-white/30 font-bold mt-1">BY SHERD AUDIO</p>
       </div>
-
-      <!-- Waveform toggle -->
-      <button
+      <button 
         @click="showWaveform = !showWaveform"
-        class="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold tracking-widest uppercase transition-all"
-        :style="showWaveform
-          ? 'background: rgba(0,130,255,0.18); border: 1px solid rgba(0,150,255,0.4); color: #55BBFF;'
+        class="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all shadow-lg"
+        :style="showWaveform 
+          ? 'background: rgba(0,130,255,0.25); border: 1px solid rgba(0,180,255,0.5); color: #88DDFF; box-shadow: 0 0 15px rgba(0,140,255,0.2);'
           : 'background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: #4466AA;'"
       >
         <span>◉</span> Waveform
@@ -333,12 +335,12 @@ const toggle = (key: keyof typeof collapsed) => { collapsed[key] = !collapsed[ke
         <span class="chevron" :class="{ rotated: collapsed.envelope }">&#8964;</span>
       </button>
       <div class="collapsible" :class="{ 'is-collapsed': collapsed.envelope }">
-        <div class="flex gap-4 pt-3">
-
-          <!-- Envelope -->
-          <div class="flex-1">
-            <div class="col-header">ENVELOPE</div>
-            <div class="flex justify-around items-center">
+        <div class="flex gap-0 pt-6 pb-4"> <!-- Consistent padding -->
+          
+          <!-- Envelope Section -->
+          <div class="flex-1 px-4">
+            <div class="col-header mb-6">ENVELOPE</div>
+            <div class="flex justify-between items-center gap-2">
               <JuceKnob id="attack"  label="Attack"  tooltip="Time to reach full volume." />
               <JuceKnob id="decay"   label="Decay"   tooltip="Time to fall to sustain level." />
               <JuceKnob id="sustain" label="Sustain" tooltip="Volume held while key is down." />
@@ -346,39 +348,52 @@ const toggle = (key: keyof typeof collapsed) => { collapsed[key] = !collapsed[ke
             </div>
           </div>
 
-          <!-- Divider -->
-          <div style="width:1px; background: rgba(0,100,200,0.15); margin: 8px 0;"></div>
+          <!-- Vertical Divider -->
+          <div class="w-[1px] self-stretch bg-white/5 my-2"></div>
 
-          <!-- WUB -->
-          <div class="flex-[1.6]">
-            <div class="flex items-center gap-4 mb-2">
-              <div class="col-header mb-0">WUB GENERATOR</div>
-              <JuceToggle id="wubEnabled" label="Enable" tooltip="Toggle LFO wub effect." />
+          <!-- Wub Generator Section -->
+          <div class="flex-[1.5] px-8">
+            <div class="flex justify-between items-end mb-6">
+              <div>
+                <div class="col-header mb-0">WUB GENERATOR</div>
+                <div class="text-[9px] text-white/20 uppercase tracking-widest mt-1">LFO Filter Modulation</div>
+              </div>
+              <div class="flex items-center gap-3 bg-white/5 px-3 py-2 rounded-lg border border-white/5">
+                <span class="text-[9px] font-black uppercase tracking-widest text-white/30">Master Enable</span>
+                <JuceToggle id="wubEnabled" label="" tooltip="Toggle LFO wub effect." />
+              </div>
             </div>
             
-            <div class="mb-4 px-2">
+            <div class="mb-8">
               <WubVisualizer 
-                :center="wubParams.center" 
-                :depth="wubParams.depth" 
-                :rate="wubParams.rate" 
-                :active="wubParams.active" 
+                :center="wub.center" 
+                :depth="wub.depth" 
+                :rate="wub.rate" 
+                :active="wub.active" 
               />
             </div>
 
-            <div class="flex justify-around items-center">
+            <div class="flex justify-between items-center gap-4">
               <JuceKnob id="wubRate"      label="Rate"   tooltip="LFO speed in Hz." />
               <JuceKnob id="wubDepth"     label="Depth"  tooltip="Sweep width around center." />
               <JuceKnob id="wubCenter"    label="Center" tooltip="Base frequency for the sweep." />
               <JuceKnob id="wubResonance" label="Reson"  tooltip="Wub filter resonance." />
-              <div class="flex flex-col gap-1 items-center">
-                <span class="text-[9px] tracking-widest uppercase mb-1" style="color:#335577;">Filter</span>
-                <div class="flex gap-1">
-                  <button v-for="(n, i) in ['LPF','BPF']" :key="i" class="wave-btn text-[10px]">{{ n }}</button>
+              
+              <div class="flex flex-col gap-2 items-center min-w-[80px]">
+                <span class="text-[10px] font-black uppercase tracking-[0.2em] text-white/20">Filter Mode</span>
+                <div class="flex p-1 bg-black/40 rounded-lg border border-white/5">
+                  <button v-for="(n, i) in ['LPF','BPF']" 
+                    :key="i" 
+                    class="px-3 py-1 rounded-md text-[10px] font-black tracking-widest transition-all"
+                    :class="wub.filterType === i ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30 shadow-[0_0_10px_rgba(37,99,235,0.2)]' : 'text-white/20 hover:text-white/40'"
+                    @click="wub.filterType = i"
+                  >
+                    {{ n }}
+                  </button>
                 </div>
               </div>
             </div>
           </div>
-
         </div>
       </div>
     </div>
@@ -392,14 +407,14 @@ const toggle = (key: keyof typeof collapsed) => { collapsed[key] = !collapsed[ke
         <span class="chevron" :class="{ rotated: collapsed.keyboard }">&#8964;</span>
       </button>
       <div class="collapsible" :class="{ 'is-collapsed': collapsed.keyboard }">
-        <div class="flex gap-4 pt-3">
+        <div class="flex gap-4 pt-6 pb-2"> <!-- Added more top padding for visual breathing room -->
           <!-- Legato panel -->
-          <div class="flex flex-col items-center justify-around gap-4 shrink-0 w-28">
+          <div class="flex flex-col items-center justify-center gap-8 shrink-0 w-28 border-r border-white/5">
             <JuceToggle id="legato"   label="Legato" tooltip="Monophonic legato mode." />
             <JuceKnob   id="glideTime" label="Glide"  tooltip="Portamento slide time." />
           </div>
           <!-- Keyboard -->
-          <div class="flex-1 min-w-0">
+          <div class="flex-1 min-w-0 flex items-center justify-center">
             <VirtualKeyboard />
           </div>
         </div>
@@ -428,13 +443,13 @@ const toggle = (key: keyof typeof collapsed) => { collapsed[key] = !collapsed[ke
 
 /* ── Panel ─────────────────────────────────────────────────────────────────── */
 .panel {
-  padding: 16px 20px;
+  padding: 24px 20px 16px; /* Increased top padding to clear the panel-bar */
   border-radius: 14px;
-  background: rgba(5, 8, 22, 0.92);
-  border: 1px solid rgba(0, 100, 255, 0.14);
+  background: rgba(5, 8, 22, 0.94);
+  border: 1px solid rgba(0, 100, 255, 0.16);
   position: relative;
   overflow: hidden;
-  transition: border-color 0.25s;
+  transition: all 0.3s ease;
 }
 .panel:hover { border-color: rgba(0, 130, 255, 0.25); }
 
@@ -663,7 +678,7 @@ const toggle = (key: keyof typeof collapsed) => { collapsed[key] = !collapsed[ke
   background: none;
   border: none;
   cursor: pointer;
-  padding: 2px 0 6px;
+  padding: 0 0 10px; /* Reduced top padding as the panel now has it */
   color: inherit;
 }
 .collapse-header:hover .section-label { color: rgba(100, 180, 255, 0.9); }

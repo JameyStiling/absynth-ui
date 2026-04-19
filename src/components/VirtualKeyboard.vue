@@ -94,18 +94,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="h-full p-6 border border-slate-700/30 rounded-2xl backdrop-blur-md shadow-2xl relative w-full flex flex-col items-center select-none" style="background: rgba(15,15,28,0.85);" @dragstart.prevent>
-    <div class="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-400 opacity-80"></div>
-    
-    <div class="flex justify-between items-center w-full mb-6">
-      <h2 class="text-lg font-bold text-slate-200 flex items-center tracking-wide">
-        <span class="w-2 h-2 rounded-full bg-purple-500 mr-3 shadow-[0_0_8px_rgba(168,85,247,0.8)]"></span>
-        VIRTUAL KEYBOARD
-      </h2>
-      <div class="flex items-center gap-4 bg-slate-900/50 p-2 rounded-lg border border-slate-700">
-        <button @click="currentOctave = Math.max(0, currentOctave - 1)" class="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-slate-600 rounded text-slate-200 font-bold transition-colors shadow active:scale-95">-</button>
-        <span class="text-slate-300 font-medium text-sm w-20 text-center uppercase tracking-widest">Octave {{ currentOctave }}</span>
-        <button @click="currentOctave = Math.min(8, currentOctave + 1)" class="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-slate-600 rounded text-slate-200 font-bold transition-colors shadow active:scale-95">+</button>
+  <div class="h-full relative w-full flex flex-col items-center select-none" @dragstart.prevent>
+    <div class="flex justify-end items-center w-full mb-6">
+      <div class="flex items-center gap-4 bg-white/5 p-1.5 rounded-lg border border-white/10">
+        <button @click="currentOctave = Math.max(0, currentOctave - 1)" class="w-8 h-7 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded text-slate-200 font-bold transition-colors shadow active:scale-95">-</button>
+        <span class="text-white/40 font-bold text-[10px] w-20 text-center uppercase tracking-[0.2em]">Octave {{ currentOctave }}</span>
+        <button @click="currentOctave = Math.min(8, currentOctave + 1)" class="w-8 h-7 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded text-slate-200 font-bold transition-colors shadow active:scale-95">+</button>
       </div>
     </div>
 
