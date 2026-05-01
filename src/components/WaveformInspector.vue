@@ -125,13 +125,16 @@ const draw = () => {
   voiceFilter.reset();
 
   // Setup wub filter
-  if (wubEnabled) {
+  const effectiveWub = wubEnabled && props.isNoteActive;
+  if (effectiveWub) {
     const wubQ = 0.707 + wubReson * 10;
     wubFilter.setCutoff(wubCenter, simSampleRate, wubQ);
     wubFilter.reset();
   }
 
-  phase += 0.008;
+  if (props.isNoteActive) {
+    phase += 0.008;
+  }
 
   // ── Generate waveform samples ──
   const samples: number[] = new Array(W);
@@ -164,7 +167,7 @@ const draw = () => {
     filtered *= sustain;
 
     // ── 4. Wub LFO filter (post-synth) ──
-    if (wubEnabled) {
+    if (effectiveWub) {
       const lfo = Math.sin(2 * Math.PI * wubLfoPhase);
       wubLfoPhase += (wubRate / simSampleRate) * samplesPerPixel;
       const halfRange = wubCenter * wubDepth;

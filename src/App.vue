@@ -26,16 +26,50 @@ const FILTER_NAMES = ['LPF', 'HPF', 'BPF'];
 const WAVE_ICONS = ['∿', '⊿', '⊓'];
 
 const oscillators = reactive([
-  { id: 1, active: true,  type: 0, level: 80, collapsed: false },
-  { id: 2, active: false, type: 1, level: 60, collapsed: false },
-  { id: 3, active: false, type: 2, level: 40, collapsed: false },
+  { id: 1, active: true,  type: 0, level: 80, collapsed: false, visible: true },
+  { id: 2, active: false, type: 1, level: 60, collapsed: false, visible: false },
+  { id: 3, active: false, type: 2, level: 40, collapsed: false, visible: false },
 ]);
 
+const addOscillator = () => {
+  const next = oscillators.find(o => !o.visible);
+  if (next) {
+    next.visible = true;
+    next.active = true;
+  }
+};
+
+const removeOscillator = (index: number) => {
+  oscillators[index].visible = false;
+  oscillators[index].active = false;
+  // Clear any routing for this osc
+  routing.delete(index);
+};
+
 const filters = reactive([
-  { id: 1, active: true,  type: 0, collapsed: false },
-  { id: 2, active: false, type: 0, collapsed: false },
-  { id: 3, active: false, type: 1, collapsed: false },
+  { id: 1, active: true,  type: 0, collapsed: false, visible: true },
+  { id: 2, active: false, type: 0, collapsed: false, visible: false },
+  { id: 3, active: false, type: 1, collapsed: false, visible: false },
 ]);
+
+const addFilter = () => {
+  const next = filters.find(f => !f.visible);
+  if (next) {
+    next.visible = true;
+    next.active = true;
+  }
+};
+
+const removeFilter = (index: number) => {
+  filters[index].visible = false;
+  filters[index].active = false;
+  // Clear any routing to this filter
+  for (const [oi, targets] of routing.entries()) {
+    if (targets.has(index)) {
+      targets.delete(index);
+    }
+  }
+};
 
 // ─── Routing ──────────────────────────────────────────────────────────────────
 const routing = reactive<Map<number, Set<number>>>(
@@ -140,6 +174,8 @@ const onDragEnd = (e: MouseEvent) => {
 
 const SVG_W = 140;
 
+const isNoteActive = ref(false);
+
 // ─── JUCE bridge ──────────────────────────────────────────────────────────────
 let isUpdating = false;
 
@@ -230,7 +266,10 @@ const toggle = (key: keyof typeof collapsed) => { collapsed[key] = !collapsed[ke
     <!-- ── Waveform Inspector ───────────────────────────────────────────── -->
     <Transition name="wave-fade">
       <div v-if="showWaveform" class="mb-4">
-        <WaveformInspector :oscillators="oscillators" />
+        <WaveformInspector 
+          :oscillators="oscillators" 
+          :is-note-active="isNoteActive"
+        />
       </div>
     </Transition>
 
@@ -252,17 +291,27 @@ const toggle = (key: keyof typeof collapsed) => { collapsed[key] = !collapsed[ke
             <div 
               v-for="(osc, i) in oscillators" 
               :key="osc.id"
+              v-show="osc.visible"
               class="osc-row-container" 
               :class="{ 'osc-collapsed': osc.collapsed, 'row-inactive': !osc.active }"
             >
               <!-- OSC Row Header -->
               <div class="osc-row-header" @click="osc.collapsed = !osc.collapsed">
                 <button
-                  class="led-btn mr-3"
-                  :style="osc.active ? 'background:#0099FF; box-shadow: 0 0 8px #0099FF;' : 'background:#112233;'"
+                  class="power-pill mr-4"
+                  :class="{ 'power-pill-on': osc.active }"
                   @click.stop="osc.active = !osc.active"
-                ></button>
+                >
+                  <div class="power-pill-knob"></div>
+                </button>
                 <span class="row-label">{{ OSC_NAMES[osc.type] }} {{ osc.id }}</span>
+                
+                <button 
+                  v-if="i > 0" 
+                  class="ml-2 text-[10px] text-white/10 hover:text-red-500/50 transition-colors"
+                  @click.stop="removeOscillator(i)"
+                >✕</button>
+
                 <span class="chevron ml-auto" :class="{ rotated: osc.collapsed }">&#8964;</span>
                 
                 <!-- Output Port -->
@@ -296,8 +345,16 @@ const toggle = (key: keyof typeof collapsed) => { collapsed[key] = !collapsed[ke
                 </div>
               </div>
             </div>
+            
+            <!-- Add Oscillator Button -->
+            <button 
+              v-if="oscillators.some(o => !o.visible)"
+              @click="addOscillator"
+              class="add-osc-btn"
+            >
+              <span class="text-[14px] mr-2">+</span> ADD OSCILLATOR
+            </button>
           </div>
-
           <!-- SVG Routing Center -->
           <div class="routing-svg-container" :style="{ width: SVG_W + 'px' }" ref="routingContainer">
             <svg :width="SVG_W" :height="600" class="pointer-events-none" :key="layoutVersion">
@@ -359,17 +416,27 @@ const toggle = (key: keyof typeof collapsed) => { collapsed[key] = !collapsed[ke
             <div 
               v-for="(flt, i) in filters" 
               :key="flt.id"
+              v-show="flt.visible"
               class="osc-row-container" 
               :class="{ 'osc-collapsed': flt.collapsed, 'row-inactive': !flt.active }"
             >
               <!-- Filter Row Header -->
               <div class="osc-row-header flex-row-reverse" @click="flt.collapsed = !flt.collapsed">
                 <button
-                  class="led-btn ml-3"
-                  :style="flt.active ? 'background:#0099FF; box-shadow: 0 0 8px #0099FF;' : 'background:#112233;'"
+                  class="power-pill ml-4"
+                  :class="{ 'power-pill-on': flt.active }"
                   @click.stop="flt.active = !flt.active"
-                ></button>
+                >
+                  <div class="power-pill-knob"></div>
+                </button>
                 <span class="row-label">FILTER {{ flt.id }}</span>
+                
+                <button 
+                  v-if="i > 0" 
+                  class="mr-2 text-[10px] text-white/10 hover:text-red-500/50 transition-colors"
+                  @click.stop="removeFilter(i)"
+                >✕</button>
+
                 <span class="text-[9px] mr-2 opacity-40 uppercase tracking-tighter" v-if="flt.collapsed">
                   {{ FILTER_NAMES[flt.type] }}
                 </span>
@@ -386,7 +453,7 @@ const toggle = (key: keyof typeof collapsed) => { collapsed[key] = !collapsed[ke
                   @mousedown.stop="startDragFromFilter($event, i)"
                 ></button>
               </div>
-
+              
               <!-- Filter Row Content -->
               <div class="osc-row-content" v-if="!flt.collapsed">
                 <div class="flex items-center justify-between w-full px-6 py-3 gap-8">
@@ -413,6 +480,15 @@ const toggle = (key: keyof typeof collapsed) => { collapsed[key] = !collapsed[ke
                 </div>
               </div>
             </div>
+            
+            <!-- Add Filter Button -->
+            <button 
+              v-if="filters.some(f => !f.visible)"
+              @click="addFilter"
+              class="add-osc-btn"
+            >
+              <span class="text-[14px] mr-2">+</span> ADD FILTER
+            </button>
           </div>
 
         </div>
@@ -507,7 +583,10 @@ const toggle = (key: keyof typeof collapsed) => { collapsed[key] = !collapsed[ke
           </div>
           <!-- Keyboard -->
           <div class="flex-1 min-w-0 flex items-center justify-center">
-            <VirtualKeyboard />
+            <VirtualKeyboard 
+            @midi-note-on="isNoteActive = true"
+            @midi-note-off="isNoteActive = false"
+          />
           </div>
         </div>
       </div>
@@ -619,24 +698,49 @@ const toggle = (key: keyof typeof collapsed) => { collapsed[key] = !collapsed[ke
 }
 
 .row-inactive {
-  opacity: 0.8;
-  filter: grayscale(0.9) brightness(0.7);
+  opacity: 0.9;
+  filter: grayscale(0.8) brightness(0.9);
 }
 
 .row-inactive .row-label {
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .row-inactive .wave-btn, 
 .row-inactive .filter-type-btn {
-  border-color: rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.4);
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.5);
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .row-inactive:hover {
-  opacity: 0.95;
-  filter: grayscale(0.5) brightness(0.9);
+  opacity: 1;
+  filter: grayscale(0.4) brightness(1);
+}
+
+.add-osc-btn {
+  width: 100%;
+  height: 40px;
+  border: 1px dashed rgba(0, 150, 255, 0.2);
+  background: rgba(0, 150, 255, 0.02);
+  color: #4488AA;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 8px;
+}
+
+.add-osc-btn:hover {
+  background: rgba(0, 150, 255, 0.08);
+  border-color: rgba(0, 150, 255, 0.4);
+  color: #00AAFF;
+  box-shadow: 0 0 15px rgba(0, 150, 255, 0.1);
 }
 .row-label { 
   font-size: 11px; 
@@ -646,14 +750,49 @@ const toggle = (key: keyof typeof collapsed) => { collapsed[key] = !collapsed[ke
   white-space: nowrap;
 }
 
-/* ── LED toggle button ─────────────────────────────────────────────────────── */
-.led-btn {
-  width: 10px; height: 10px;
-  border-radius: 50%;
-  border: none;
+/* ── Power Pill Slider Toggle ──────────────────────────────────────────────── */
+.power-pill {
+  width: 32px;
+  height: 16px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  padding: 0 2px;
   cursor: pointer;
-  flex-shrink: 0;
-  transition: background 0.2s, box-shadow 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.power-pill-knob {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+
+.power-pill-on {
+  background: rgba(0, 80, 180, 0.4);
+  border-color: rgba(0, 150, 255, 0.4);
+  box-shadow: inset 0 0 8px rgba(0, 140, 255, 0.2);
+}
+
+.power-pill-on .power-pill-knob {
+  background: #00AAFF;
+  transform: translateX(16px);
+  box-shadow: 0 0 8px rgba(0, 150, 255, 0.8);
+}
+
+.power-pill:hover .power-pill-knob {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.power-pill-on:hover .power-pill-knob {
+  background: #55CCFF;
+  box-shadow: 0 0 12px rgba(0, 180, 255, 1);
 }
 
 /* ── Waveform / filter type buttons ────────────────────────────────────────── */
