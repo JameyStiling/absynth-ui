@@ -6,6 +6,8 @@ import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Relative asset paths so the production bundle works from the VST3 Resources folder.
+  base: './',
   // Listen on all interfaces so both http://localhost:5173 (browser) and http://127.0.0.1:5173
   // (JUCE WebView in many DAWs) reach the dev server.
   server: {

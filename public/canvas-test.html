@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head><title>Canvas Test</title></head>
+<body>
+<div id="container" style="width:100%; height:48px; background:#111; border:1px solid red;">
+  <canvas id="cvs" style="display:block; width:100%; height:100%;"></canvas>
+</div>
+<div id="log" style="color:white; background:#222; padding:10px; font-family:monospace;"></div>
+<script>
+const log = (msg) => { document.getElementById('log').innerHTML += msg + '<br>'; console.log(msg); };
+const cvs = document.getElementById('cvs');
+const container = document.getElementById('container');
+
+// Test 1: getBoundingClientRect
+const rect = cvs.getBoundingClientRect();
+log('getBoundingClientRect: W=' + rect.width + ' H=' + rect.height);
+log('offsetWidth=' + cvs.offsetWidth + ' offsetHeight=' + cvs.offsetHeight);
+log('parentH=' + container.offsetHeight);
+
+// Test 2: Actually draw something if we can
+if (rect.width > 0 && rect.height > 0) {
+  cvs.width = rect.width;
+  cvs.height = rect.height;
+  const ctx = cvs.getContext('2d');
+  ctx.fillStyle = '#003';
+  ctx.fillRect(0, 0, cvs.width, cvs.height);
+  ctx.strokeStyle = '#3AF';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let x = 0; x < cvs.width; x++) {
+    const y = cvs.height/2 - Math.sin(x/30) * (cvs.height/2 - 4);
+    x === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+  log('Drew waveform! canvas.width=' + cvs.width + ' canvas.height=' + cvs.height);
+} else {
+  log('ERROR: canvas has zero size!');
+  // Try again after layout
+  setTimeout(() => {
+    const r2 = cvs.getBoundingClientRect();
+    log('After 100ms: W=' + r2.width + ' H=' + r2.height);
+  }, 100);
+}
+</script>
+</body>
+</html>
