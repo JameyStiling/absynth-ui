@@ -7,6 +7,12 @@ const props = defineProps<{
   id: string;
   label: string;
   tooltip?: string;
+  modelValue?: boolean;
+}>();
+
+const emit = defineEmits<{
+  (e: 'update:modelValue', val: boolean): void;
+  (e: 'change', val: boolean): void;
 }>();
 
 const value = ref(false);
@@ -21,16 +27,32 @@ onMounted(() => {
     
     toggleState.valueChangedEvent.addListener(() => {
       value.value = toggleState.getValue();
+      emit('update:modelValue', value.value);
+      emit('change', value.value);
     });
+  } else if (props.modelValue !== undefined) {
+    value.value = props.modelValue;
+  }
+});
+
+watch(() => props.modelValue, (newVal) => {
+  if (newVal !== undefined && newVal !== value.value) {
+    value.value = newVal;
+    if (toggleState) {
+      toggleState.setValue(newVal);
+    }
   }
 });
 
 const toggle = () => {
+  const nextVal = !value.value;
   if (toggleState) {
-    toggleState.setValue(!value.value);
+    toggleState.setValue(nextVal);
   } else {
-    value.value = !value.value;
+    value.value = nextVal;
   }
+  emit('update:modelValue', nextVal);
+  emit('change', nextVal);
 };
 </script>
 
