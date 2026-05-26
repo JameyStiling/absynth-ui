@@ -1,118 +1,85 @@
-# LATTICE UI
+# Lattice UI (absynth-ui)
 
-> The Vue 3 frontend for the **Lattice** semi-modular synthesizer, running inside a JUCE 8 `WKWebView` with a live JS↔C++ parameter bridge.
+Vue 3 + TypeScript front end for **Lattice**, running inside JUCE 8’s `WKWebView` with a live JS↔C++ parameter bridge.
 
----
-
-## Overview
-
-This repo contains the entire user interface for Lattice. It is a **Vue 3 + TypeScript** single-page app served by Vite and loaded inside the JUCE standalone app or plugin's embedded WebView. Changes made in the browser dev tools or via HMR appear instantly inside the running synthesizer — no C++ rebuild required.
-
-For C++ DSP source and build instructions, see the companion repo: [lattice-vst](https://github.com/JameyStiling/lattice-vst).  
-For a full description of every synth parameter, see [lattice-vst/PARAMETERS.md](https://github.com/JameyStiling/lattice-vst/blob/main/PARAMETERS.md).
+Companion repo: [absynth-vst](https://github.com/JameyStiling/absynth-vst) (DSP + plugin host).  
+Monorepo: use the parent **`absynth`** folder (`absynth-ui` + `absynth-vst` together) when you have the combined checkout.
 
 ---
 
-## Tech Stack
+## Tech stack
 
 | Layer | Technology |
-|-------|-----------|
-| Framework | Vue 3 (Composition API + `<script setup>`) |
+|-------|------------|
+| Framework | Vue 3 (Composition API, `<script setup>`) |
 | Language | TypeScript |
-| Styling | Tailwind CSS (dark synth aesthetic) |
-| Build | Vite 6 with HMR |
-| JUCE Bridge | `juce-framework-frontend` npm package |
+| Styling | Tailwind CSS |
+| Build | Vite 8 |
+| JUCE bridge | `juce-framework-frontend` (from vendored JUCE in `absynth-vst`) |
 
 ---
 
-## Project Structure
+## Scripts
 
+| Command | Purpose |
+|---------|---------|
+| `npm run dev` | Vite dev server at `http://localhost:5173` (Standalone / hot reload) |
+| `npm run build-plugin` | **Production bundle for VST3** — single inlined `dist/index.html` |
+| `npm run build` | `type-check` + normal `vite build` (split assets; browser / CI) |
+| `npm run build-only` | `vite build` only (split assets) |
+| `npm run type-check` | `vue-tsc --build` |
+| `npm start` | Dev server + open Standalone app (paths assume monorepo layout) |
+
+From the **monorepo root**, use `npm run build:vst3` to build UI + native plugin and install the VST3.
+
+### Plugin vs dev builds
+
+- **`build-plugin`** (`vite build --mode plugin`) uses `vite-plugin-singlefile` so one `index.html` contains all JS/CSS. Required for DAW WebViews (Bitwig, etc.).
+- **`build` / `build-only`** emit `index.html` + `assets/*`. Fine for dev in a browser; **not** embedded into the VST3.
+
+Check after `build-plugin`:
+
+```bash
+wc -c dist/index.html   # expect ~280000+, not ~430
 ```
-├── src/
-│   ├── App.vue                  # Root layout — all synth sections assembled here
-│   ├── main.ts                  # App entry point
-│   └── components/
-│       ├── JuceKnob.vue         # Rotary knob ↔ juce::WebSliderRelay (with Hz/Note display)
-│       ├── JuceToggle.vue       # Toggle switch ↔ juce::WebToggleButtonRelay (Neon Blue theme)
-│       ├── WaveformInspector.vue# Live composite waveform visualization
-│       ├── WubVisualizer.vue    # LFO frequency spectrum visualization
-│       └── VirtualKeyboard.vue  # Drag-to-play keyboard → sendMidiNote native bridge
-```
-
-### UI Features (Lattice)
-
-| Component | Features |
-|-----------|----------|
-| **Waveform Inspector** | Real-time composite waveform display (Sine, Saw, Square summing) |
-| **Signal Routing** | Interactive semi-modular matrix with collapsible OSC and Filter rows |
-| **Oscillators** | 3 independent slots with waveform selection and level control |
-| **Filters** | 3 independent slots (LPF, HPF, BPF) with Cutoff/Resonance |
-| **Envelope & WUB** | Unified collapsible panel for ADSR and LFO-based Wub effects |
-| **Wub Visualizer** | Live spectrum plot showing LFO sweep range and current frequency |
-| **Smart Knobs** | Frequency-aware overlays showing Hz and nearest musical note |
-| **Virtual Keyboard** | Chromatic drag-to-play with Legato and Glide controls |
 
 ---
 
-## Development
-
-### Prerequisites
-
-- Node.js ≥ 18
-- The **lattice-vst** standalone app built and running (provides the C++ bridge)
-
-### Install & Start
+## Development (Standalone + HMR)
 
 ```bash
 npm install
-npm run dev      # Vite dev server → http://localhost:5173
+npm run dev
 ```
 
-> **Important:** The server must run on `localhost` (not `127.0.0.1`). JUCE's WKWebView treats `localhost` as a secure origin; `127.0.0.1` is blocked for native function calls.
+> Use **`localhost`**, not `127.0.0.1`. JUCE’s WKWebView treats `localhost` as a secure origin for native bridge calls.
 
-### Other Commands
+In the monorepo:
 
 ```bash
-npm run build        # Production bundle (not needed for plugin dev)
-npm run type-check   # TypeScript type checking
-npm run lint         # ESLint
-npm run test:unit    # Vitest unit tests
+cd .. && npm run dev
 ```
 
 ---
 
-## How the JUCE Bridge Works
+## JUCE bridge (summary)
 
-### Parameter Knobs / Sliders (JuceKnob, JuceSelect, JuceToggle)
+- **Parameters** — `JuceKnob` / `JuceToggle` / combos use `Juce.getSliderState(id)` etc.; IDs must match `PluginProcessor::createParameters()` in `absynth-vst`.
+- **MIDI** — `Juce.getNativeFunction("sendMidiNote")` → C++ `handleWebMidiEvent`.
+- **MSEG draw** — `sendModDrawState` native function for filter draw modulation.
 
-Each component calls `Juce.getSliderState(id)` / `Juce.getComboBoxState(id)` / `Juce.getToggleState(id)` from the `juce-framework-frontend` package. JUCE registers matching `WebSliderRelay` / `WebComboBoxRelay` / `WebToggleButtonRelay` objects on the C++ side. When you move a knob in the UI, the value is immediately synchronized to the `AudioProcessorValueTreeState` parameter on the C++ audio thread.
-
-### MIDI (VirtualKeyboard)
-
-The virtual keyboard calls a **native function** registered by the C++ `PluginEditor`:
-
-```ts
-const sendMidiNote = Juce.getNativeFunction("sendMidiNote");
-sendMidiNote(midiNoteNumber, velocity, isNoteOn);
-```
-
-On the C++ side this calls `processorRef.handleWebMidiEvent(note, vel, isNoteOn)`, which injects a note-on/off directly into the `MidiKeyboardState`, feeding the synth voices in the next `processBlock`.
+The bridge is only active inside the plugin/Standalone WebView. In a normal browser, controls use local fallback state.
 
 ---
 
-## Notes for Development
+## Notes
 
-- `vueDevTools()` is **disabled** in `vite.config.ts`. It crashes Apple's WKWebView — do not re-enable it when running inside the plugin.
-- The JUCE bridge is only active when running inside the standalone/plugin app. When opened in a regular browser, knob components gracefully fall back to local state and keyboard clicks log to the console instead of producing audio.
-- All parameter IDs in Vue components (e.g. `id="cutoff"`) must exactly match the `ParameterID` strings registered in `PluginProcessor::createParameters()`.
+- Do **not** enable `vueDevTools()` in `vite.config.ts` — it crashes WKWebView on macOS.
+- `vite.config.ts` uses `base: './'` for relative paths when assets are split.
+- Parameter IDs in Vue must match C++ `ParameterID` strings exactly.
 
 ---
 
 ## License
 
-MIT — see `LICENSE` for details.
-
-## Acknowledgments
-
-UI powered by [Vue 3](https://vuejs.org/) + [Vite](https://vitejs.dev/)  
-Audio engine by [JUCE](https://juce.com/)
+MIT — see `LICENSE` if present.
