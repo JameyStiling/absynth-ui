@@ -8,6 +8,8 @@ const isLatchEnabled = defineModel<boolean>('latch', { default: false });
 const props = defineProps<{
   arpMode?: number;
   arpEnabled?: boolean;
+  /** Notes held by the DAW / external MIDI (display only — does not send MIDI). */
+  hostNotes?: number[];
 }>();
 
 const sendMidiNote = Juce.getNativeFunction("sendMidiNote");
@@ -58,6 +60,17 @@ const notes = [
 
 const getMidiNote = (offset: number) => {
   return (currentOctave.value + 1) * 12 + offset;
+};
+
+const isKeyLit = (offset: number) => {
+  const note = getMidiNote(offset);
+  if (activeNotes.value.has(note)) return true;
+  return (props.hostNotes ?? []).includes(note);
+};
+
+const isHostOnlyKey = (offset: number) => {
+  const note = getMidiNote(offset);
+  return !(activeNotes.value.has(note)) && (props.hostNotes ?? []).includes(note);
 };
 
 const activeNotes = ref<Set<number>>(new Set());
@@ -227,14 +240,17 @@ onUnmounted(() => {
              :class="[
                'cursor-pointer select-none pb-8 flex items-end justify-center transition-all duration-75',
                note.isBlack ? 'key-black z-10' : 'key-natural z-0',
-               activeNotes.has(getMidiNote(note.offset)) && note.isBlack ? 'key-black-active' : '',
-               activeNotes.has(getMidiNote(note.offset)) && !note.isBlack ? 'key-natural-active' : ''
+               isKeyLit(note.offset) && note.isBlack ? (isHostOnlyKey(note.offset) ? 'key-black-host' : 'key-black-active') : '',
+               isKeyLit(note.offset) && !note.isBlack ? (isHostOnlyKey(note.offset) ? 'key-natural-host' : 'key-natural-active') : ''
              ]"
         >
           <!-- Glowing backlit beam above active keys (using electric blue/cyan scheme) -->
           <div 
-            v-if="activeNotes.has(getMidiNote(note.offset))"
-            class="absolute top-0 left-0 w-full h-[3px] bg-[#00d2ff] shadow-[0_0_10px_#0077ff,0_0_20px_#0077ff,0_0_35px_rgba(0,210,255,0.95)] z-30 pointer-events-none"
+            v-if="isKeyLit(note.offset)"
+            class="absolute top-0 left-0 w-full h-[3px] z-30 pointer-events-none"
+            :class="isHostOnlyKey(note.offset)
+              ? 'bg-[#a855f7] shadow-[0_0_10px_#a855f7,0_0_20px_#9333ea,0_0_35px_rgba(168,85,247,0.9)]'
+              : 'bg-[#00d2ff] shadow-[0_0_10px_#0077ff,0_0_20px_#0077ff,0_0_35px_rgba(0,210,255,0.95)]'"
           ></div>
 
           <!-- Sequence Badge (Show if Latch is ON, OR if Repeater is ON and in 'As Played' mode) -->
@@ -246,7 +262,7 @@ onUnmounted(() => {
             class="font-black pointer-events-none uppercase tracking-widest transition-opacity duration-150"
             :class="[
               note.isBlack ? 'text-[9.5px]' : 'text-[11.5px]',
-              activeNotes.has(getMidiNote(note.offset)) 
+              isKeyLit(note.offset)
                 ? 'text-white opacity-100' 
                 : (note.isBlack ? 'text-white/20' : 'text-slate-500/70')
             ]"
@@ -347,6 +363,37 @@ onUnmounted(() => {
     inset 0 1px 2px rgba(255, 255, 255, 0.2),
     0 4px 6px rgba(0, 0, 0, 0.4),
     0 0 15px rgba(0, 180, 255, 0.3) !important;
+  transform: translateY(2px);
+}
+
+/* Host / DAW MIDI (violet accent) */
+.key-natural-host {
+  background: linear-gradient(180deg,
+    #c084fc 0%,
+    #a855f7 18%,
+    #7c3aed 50%,
+    rgba(124, 58, 237, 0.12) 100%
+  ) !important;
+  border-color: rgba(168, 85, 247, 0.5) !important;
+  border-bottom-color: #4c1d95 !important;
+  box-shadow:
+    inset 0 1px 2px rgba(255, 255, 255, 0.25),
+    0 0 14px rgba(168, 85, 247, 0.35) !important;
+  transform: translateY(1.5px);
+}
+
+.key-black-host {
+  background: linear-gradient(180deg,
+    #d8b4fe 0%,
+    #a855f7 25%,
+    #6d28d9 58%,
+    rgba(109, 40, 217, 0.2) 100%
+  ) !important;
+  border-color: rgba(192, 132, 252, 0.55) !important;
+  border-bottom-color: #3b0764 !important;
+  box-shadow:
+    inset 0 1px 2px rgba(255, 255, 255, 0.2),
+    0 0 14px rgba(168, 85, 247, 0.4) !important;
   transform: translateY(2px);
 }
 </style>

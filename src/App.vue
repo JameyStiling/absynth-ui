@@ -7,6 +7,8 @@ import WubVisualizer from './components/WubVisualizer.vue';
 import MsegEditor from './components/MsegEditor.vue';
 import WaveformInspector from './components/WaveformInspector.vue';
 import VirtualKeyboard from './components/VirtualKeyboard.vue';
+import JuceSelect from './components/JuceSelect.vue';
+import { useHostMidiNotes } from './composables/useHostMidiNotes';
 
 // ─── Wub Visualizer state ─────────────────────────────────────────────────────
 const wub = reactive({
@@ -260,14 +262,23 @@ const onMsegTimelineChange = (tl: any) => {
 };
 
 const isNoteActive = ref(false);
-const activeMidiNotes = ref<number[]>([]);
+const localMidiNotes = ref<number[]>([]);
+const hostMidiNotes = useHostMidiNotes();
 const latchEnabled = ref(false);
 const currentOctave = ref(4);
 
+const displayMidiNotes = computed(() => {
+  const merged = new Set<number>([...localMidiNotes.value, ...hostMidiNotes.value]);
+  return Array.from(merged).sort((a, b) => a - b);
+});
+
 const onActiveNotesChange = (notes: number[]) => {
-  activeMidiNotes.value = notes;
-  isNoteActive.value = notes.length > 0;
+  localMidiNotes.value = notes;
 };
+
+watch(displayMidiNotes, (notes) => {
+  isNoteActive.value = notes.length > 0;
+}, { immediate: true });
 
 // ─── Real-time ADSR Phase State Machine ───────────────────────────────────────
 const activePhase = ref<'idle' | 'attack' | 'decay' | 'sustain' | 'release'>('idle');
@@ -482,7 +493,7 @@ const toggle = (key: keyof typeof collapsed) => { collapsed[key] = !collapsed[ke
       <WaveformInspector 
         :oscillators="oscillators" 
         :is-note-active="isNoteActive"
-        :active-notes="activeMidiNotes"
+        :active-notes="displayMidiNotes"
         :arp-enabled="arp.enabled"
         :arp-rate-index="arp.rate"
         :arp-mode="arp.mode"
@@ -901,7 +912,7 @@ const toggle = (key: keyof typeof collapsed) => { collapsed[key] = !collapsed[ke
             :slope="wub.slope"
             :active="wub.active" 
             :is-note-active="isNoteActive"
-            :active-notes="activeMidiNotes"
+            :active-notes="displayMidiNotes"
             :oscillators="oscillators"
             :arp-enabled="arp.enabled"
             :arp-rate-index="arp.rate"
@@ -985,8 +996,12 @@ const toggle = (key: keyof typeof collapsed) => { collapsed[key] = !collapsed[ke
                 </div>
               </div>
               
-              <!-- Octave & Latch Controls (Moved from keyboard) -->
+              <!-- MIDI In + Octave & Latch -->
               <div class="flex items-center gap-4 pl-4 border-l border-white/5 ml-2 mr-auto">
+                <div class="flex flex-col gap-0.5 min-w-[88px]">
+                  <span class="text-[7px] font-black uppercase tracking-widest text-white/35">MIDI In</span>
+                  <JuceSelect id="midiChannel" label="" tooltip="Listen on all channels (Omni) or a single MIDI channel." />
+                </div>
                 <!-- Latch Toggle -->
                 <button 
                   @click="latchEnabled = !latchEnabled" 
@@ -1032,8 +1047,7 @@ const toggle = (key: keyof typeof collapsed) => { collapsed[key] = !collapsed[ke
                 v-model:octave="currentOctave"
                 :arp-mode="arp.mode"
                 :arp-enabled="arp.enabled"
-                @midi-note-on="isNoteActive = true"
-                @midi-note-off="isNoteActive = false"
+                :host-notes="hostMidiNotes"
                 @active-notes-change="onActiveNotesChange"
               />
             </div>
