@@ -24,13 +24,13 @@ const onLeave = () => {
     <Transition name="tooltip">
       <div
         v-if="visible && text"
-        class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-[9999] pointer-events-none"
+        class="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-[9999] pointer-events-none"
       >
-        <!-- Arrow -->
-        <div class="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0
+        <!-- Arrow pointing UP -->
+        <div class="absolute left-1/2 -translate-x-1/2 bottom-full w-0 h-0
                     border-l-[5px] border-l-transparent
                     border-r-[5px] border-r-transparent
-                    border-t-[5px] border-t-slate-800"></div>
+                    border-b-[5px] border-b-slate-800"></div>
 
         <!-- Content -->
         <div class="bg-slate-800/95 border border-slate-600 text-slate-300 text-[11px]
