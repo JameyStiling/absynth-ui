@@ -9,6 +9,7 @@ import WaveformInspector from './components/WaveformInspector.vue';
 import VirtualKeyboard from './components/VirtualKeyboard.vue';
 import JuceSelect from './components/JuceSelect.vue';
 import { useHostMidiNotes } from './composables/useHostMidiNotes';
+import NebuliPanel from './components/NebuliPanel.vue';
 
 // ─── Wub Visualizer state ─────────────────────────────────────────────────────
 const wub = reactive({
@@ -952,6 +953,8 @@ const toggle = (key: keyof typeof collapsed) => { collapsed[key] = !collapsed[ke
       </div>
     </div>
 
+    <!-- ── Nebuli FX Expansion Panel ── -->
+    <NebuliPanel :is-note-active="isNoteActive" />
 
     <!-- ── Keyboard row ────────────────────────────────────────────────── -->
     <div class="panel mb-1 shrink-0">
