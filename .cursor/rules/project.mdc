@@ -1,0 +1,89 @@
+---
+description: Lattice synthesizer development rules — C++ DSP engine, Vue web UI, JUCE WebBridge, and expansion module integration
+globs: **/*.{cpp,h,vue,ts,js,json,cmake}
+---
+# Lattice (Absynth) — Project Rules
+
+## What This Is
+
+Lattice is a semi-modular VST3/AU synthesizer plugin. It consists of two separate GitHub repos that are developed together locally:
+
+- **absynth-ui** (`ui` remote) — Vue 3 + Vite web-based UI. Lives at the repo root alongside `package.json`.
+- **absynth-vst** (`vst` remote) — C++ JUCE plugin engine. Lives at `absynth-vst/` as a subdirectory.
+
+The UI is embedded in the JUCE plugin via `juce::WebBrowserComponent`. Communication between the C++ audio engine and the Vue UI uses the **JUCE WebBridge** (`juce-framework-frontend` npm package, resolved from `./absynth-vst/JUCE/modules/juce_gui_extra/native/javascript`).
+
+## Local Directory Structure
+
+```
+absynth/                        ← repo root (package.json, vite, vue)
+├── src/                        ← Vue 3 UI source
+│   ├── components/
+│   │   ├── JuceKnob.vue        ← Frequency-aware rotary controls
+│   │   ├── JuceToggle.vue      ← On/off toggles
+│   │   ├── JuceSelect.vue      ← Dropdowns (filter type, waveform)
+│   │   ├── MsegEditor.vue      ← Multi-segment envelope (draw mod)
+│   │   ├── VirtualKeyboard.vue ← Drag-to-play chromatic keyboard
+│   │   ├── WubVisualizer.vue   ← Waveform / spectrum display
+│   │   └── WaveformInspector.vue
+│   └── composables/
+│       └── useHostMidiNotes.ts ← MIDI note bridge
+├── absynth-vst/                ← C++ JUCE plugin (separate GitHub repo)
+│   ├── Source/
+│   │   ├── PluginProcessor.h/cpp  ← LatticeAudioProcessor
+│   │   └── PluginEditor.h/cpp     ← WebBrowser host
+│   ├── CMakeLists.txt
+│   ├── JUCE/                   ← Framework (gitignored, fetched)
+│   └── build/                  ← CMake output (gitignored)
+└── .cursor/rules/
+    ├── company.mdc             ← Symlink → sherd/.cursor/rules/company.mdc
+    └── project.mdc             ← This file
+```
+
+## Signal Chain (C++ Engine)
+
+```
+MIDI → Arpeggiator → CustomSynth (polyphonic voices) → ModEngine (Wub) → [Module Chain] → Out
+```
+
+- **CustomSynth**: 4 polyphonic voices, each with 3 oscillators (Sine/Saw/Square), LadderFilter (LP/HP/BP), ADSR, glide/portamento. Supports legato mode.
+- **ModEngine (Wub Generator)**: Post-synth LFO-driven filter sweep. Supports DRAW mode via MSEG.
+- **Module Chain** (PLANNED): Expansion modules (e.g., Nebula granular reverb) will process audio here, after the Wub Generator and before master output.
+
+## Parameter Naming Convention
+
+All parameters use JUCE `AudioProcessorValueTreeState` (APVTS). IDs use flat namespacing with prefixes:
+
+| Prefix | Component |
+|--------|-----------|
+| `osc1_`, `osc2_`, `osc3_` | Oscillators |
+| `filter_` | Voice filter |
+| `env_` | ADSR envelope |
+| `wub_` | Wub Generator / ModEngine |
+| `arp_` | Arpeggiator |
+| `[module]_` | Expansion modules (e.g., `nebula_mix`) |
+
+## Git Remotes
+
+This repo has TWO remotes pointing to TWO separate GitHub repos:
+- `ui` → `JameyStiling/absynth-ui` (the Vue UI code at root)
+- `vst` → `JameyStiling/absynth-vst` (the C++ engine at `absynth-vst/`)
+
+When pushing, target the correct remote:
+- UI changes: `git push ui main`
+- VST changes: push from within the `absynth-vst` subdirectory or use `git push vst main`
+
+## Key Build Commands
+
+- **UI dev server**: `npm run dev` (Vite on `:5173`)
+- **Full start** (UI + open standalone app): `npm run start`
+- **Build UI for plugin embed**: `npm run build-plugin`
+- **Build VST**: `cd absynth-vst && cmake -B build && cmake --build build`
+
+## Rules
+
+- The `.gitignore` excludes `absynth-vst/build/`, `absynth-vst/JUCE/`, `node_modules/`, and standard Vite/IDE artifacts.
+- Never commit JUCE framework source — it's fetched via `scripts/fetch-juce.sh`.
+- DSP code must be sample-rate independent. Always use `sampleRate` from `prepareToPlay()`.
+- Lag filters or `SmoothedValue` on all continuous parameters to prevent clicks/zipper noise.
+- UI components should use the existing `JuceKnob`/`JuceToggle`/`JuceSelect` system — don't create custom controls without a clear reason.
